@@ -107,6 +107,32 @@ la syntaxe avant déploiement.
 | `delay` | `8` s | durée d'affichage par diapo |
 | `transition` | `fade` | `fade`, `slide`, `none` |
 | `tdur` | `1500` ms | durée de transition |
+| `offset`, `limit` | — | joue seulement les diapos `[offset, offset+limit[` |
+| `once` | — | `once=1` : après la dernière diapo de la fenêtre, émet `postMessage('nextevents:done')` vers la page mère puis s'arrête |
+
+## Alterner avec la page des jauges
+
+Cas d'usage : `jauges → 2 diapos → jauges → 2 diapos suivantes → …`
+La page mère (jauges.php) pilote le cycle — le slideshow joue un
+**groupe de N diapos** puis notifie la fin via `postMessage` :
+
+```html
+<iframe id="nx" src="/front/slideshow.php?fmt=portrait-screen
+     &offset=0&limit=2&once=1" style="border:0"></iframe>
+<script>
+let offset = 0;
+window.addEventListener('message', e => {
+  if (e.data !== 'nextevents:done') return;
+  offset += 2;                          // groupe suivant
+  // → ici : remettre la vue jauges (ou recharger l'iframe
+  //   avec offset à jour pour la prochaine alternance)
+});
+</script>
+```
+
+La page mère connaît le nombre total de diapos via le manifest JSON :
+`fetch('/front/slideshow.php?manifest=portrait-screen')` →
+`r.slides.length` (repasser `offset` à 0 quand il dépasse la liste).
 
 ## Réglages (`config.php`)
 
@@ -127,7 +153,9 @@ de bureau.
 | Constante | Défaut | Description |
 |---|---|---|
 | `FORMATS` | `['portrait-screen', 'landscape']` | formats produits : `portrait-screen` (1080×1920, écran 9:16), `landscape` (1920×1080), `portrait` (A4) |
-| `MAX_EVENTS` | `0` | nombre max d'événements par format (0 = tous) |
+| `MAX_EVENTS` | `0` | nombre max d'événements par format (0 = tous) — ex. `8` pour « les 8 prochaines » |
+| `DAY_OFFSET_MIN` | `0` | prochaine séance au plus tôt dans N jours — `1` = « à partir de demain » |
+| `DAY_OFFSET_MAX` | `null` | borne haute en jours — `MIN=1, MAX=1` = le programme de demain seul |
 | `NEXT_LABEL` | `'Prochaine séance : '` | préfixe des événements récurrents (vide = date seule) |
 | `SERIES_MAP` | `grandstemoins = Les grands témoins` | `keyword-oa = Libellé` par ligne — marque la série éditoriale |
 

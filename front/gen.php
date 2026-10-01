@@ -40,6 +40,20 @@ function gen_locked($force) {
         if (!$todo) return ['status' => 'fresh'];
 
         $events = oa_list_events();
+        // fenêtre J+N → J+M sur la prochaine séance (ex. annonce des
+        // événements de demain : DAY_OFFSET_MIN=1, MAX=1)
+        if (DAY_OFFSET_MIN || DAY_OFFSET_MAX !== null) {
+            $t0 = oa_local('now');
+            $today_ts = mktime(0, 0, 0, $t0[1], $t0[2], $t0[0]);
+            $events = array_values(array_filter($events, function ($e) use ($today_ts) {
+                if (empty($e['_dt'])) return true;  // permanente : toujours
+                $day_ts = mktime(0, 0, 0, $e['_dt'][1], $e['_dt'][2],
+                                 $e['_dt'][0]);
+                $diff = round(($day_ts - $today_ts) / 86400);
+                return $diff >= DAY_OFFSET_MIN
+                    && (DAY_OFFSET_MAX === null || $diff <= DAY_OFFSET_MAX);
+            }));
+        }
         if (MAX_EVENTS) $events = array_slice($events, 0, MAX_EVENTS);
         $events = apply_spec_prefs($events);
         if (!$events)

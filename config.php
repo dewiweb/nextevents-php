@@ -28,6 +28,11 @@ define('OA_CATEGORIES', [
 define('FORMATS', ['portrait-screen', 'landscape']);
 // nombre max d'événements par format (0 = sans limite)
 define('MAX_EVENTS', 0);
+// fenêtre en jours sur la PROCHAINE séance : 1 = « à partir de
+// demain » (annonce J+1) ; DAY_OFFSET_MAX null = pas de borne haute.
+// Ex. programme de demain seul : MIN=1, MAX=1.
+define('DAY_OFFSET_MIN', 0);
+define('DAY_OFFSET_MAX', null);
 // préfixe des événements récurrents (vide = date seule)
 define('NEXT_LABEL', 'Prochaine séance : ');
 // specs affichées (vide = toutes ; 'Date' est toujours conservée)

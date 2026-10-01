@@ -8,6 +8,10 @@
  *
  * Query : ?fmt=portrait-screen|landscape  ?delay=8  ?tdur=1500
  *         ?transition=fade|slide|none
+ *         ?offset=N&limit=2&once=1 → joue les diapos N..N+limit puis
+ *           émet postMessage('nextevents:done') vers le parent —
+ *           pensé pour être iframé dans jauges.php : la page mère
+ *           alterne elle-même jauges ↔ groupe de diapos.
  * JSON  : ?manifest=<fmt> → {slides, delay, transition, tdur}
  */
 
@@ -62,9 +66,14 @@ const P = new URLSearchParams(location.search);
 const qDelay = parseFloat(P.get('delay') || '');
 const qTrans = P.get('transition') || '';
 const qTdur = parseInt(P.get('tdur') || '');
+// mode « chunk » pour intégration dans jauges.php : joue les diapos
+// [OFFSET, OFFSET+LIMIT[ puis s'arrête en notifiant le parent
+const OFFSET = parseInt(P.get('offset') || '0');
+const LIMIT = parseInt(P.get('limit') || '0');   // 0 = tout
+const ONCE = P.get('once') === '1';
 
 let slides = [], idx = -1, cur = null, timer = null;
-let delay = 8, trans = 'fade', dur = 1500;
+let delay = 8, trans = 'fade', dur = 1500, done = false;
 
 /* La diapo est dessinée en pixels fixes (1080×1920) : on met
    l'iframe à l'échelle du viewport réel, centrée. */
@@ -113,7 +122,7 @@ function show(name) {
 }
 
 function next() {
-  if (!slides.length) return;
+  if (!slides.length || done) return;
   idx = (idx + 1) % slides.length;
   show(slides[idx]);
   arm();
@@ -121,7 +130,17 @@ function next() {
 
 function arm() {
   clearTimeout(timer);
-  timer = setTimeout(next, Math.max(2, delay) * 1000);
+  // en mode once : la DERNIÈRE diapo du chunk reste delay secondes,
+  // puis on notifie la page mère (jauges reprend la main)
+  if (ONCE && idx === slides.length - 1) {
+    timer = setTimeout(() => {
+      done = true;
+      if (window.parent !== window)
+        window.parent.postMessage('nextevents:done', '*');
+    }, Math.max(2, delay) * 1000);
+  } else {
+    timer = setTimeout(next, Math.max(2, delay) * 1000);
+  }
 }
 
 async function poll() {
@@ -131,8 +150,11 @@ async function poll() {
     delay = qDelay || r.delay || 8;
     trans = qTrans || r.transition || 'fade';
     dur = qTdur || r.tdur || 1500;
-    const changed = JSON.stringify(r.slides) !== JSON.stringify(slides);
-    slides = r.slides;
+    let list = r.slides;
+    // fenêtre demandée par la page mère (chunk offset/limit)
+    if (OFFSET || LIMIT) list = list.slice(OFFSET, LIMIT || undefined);
+    const changed = JSON.stringify(list) !== JSON.stringify(slides);
+    slides = list;
     document.getElementById('empty').style.display =
       slides.length ? 'none' : 'grid';
     if (changed && (!slides.length || !slides.includes(slides[idx]))) {
