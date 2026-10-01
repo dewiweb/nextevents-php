@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<!--
+  ==========================================================================
+  Gabarit de diapo « événement » — PORTRAIT ÉCRAN (conçu 1080×1920, 9:16)
+  ==========================================================================
+  Déclinaison de slide_template_portrait.html pour diffusion sur un
+  écran 16:9 monté en vertical (totem, affichage dynamique) — pas pour
+  l'impression. Composition identique, géométrie retaillée pour le
+  format plus étroit et plus haut.
+
+  Rempli par nextevents/slide.py via string.Template — mêmes variables
+  que le gabarit paysage (voir son commentaire d'en-tête).
+
+  Charte commune : slide_base.css (injecté à la ligne @import
+  ci-dessous). Ce gabarit ne contient que ses métriques (:root) et sa
+  composition propre (photo-block/content).
+-->
+<html lang="fr"><head><meta charset="utf-8">
+<style>
+/* ---------- Métriques portrait écran 1080×1920 --------------------------- */
+:root {
+    --w: 1080px;  --h: 1920px;          /* canvas de conception */
+
+    --card-radius: 56px;
+    --card-pad: 42px 44px;
+    --card-gap: 34px;
+
+    --wm-size: 620px;
+    --wm-offset: -200px;
+
+    --photo-radius: 40px;
+    --photo-pos: center 28%;
+
+    --tag-inset: 22px;
+    --tag-pad: 11px 30px;
+    --tag-size: 27px;
+
+    --credit-inset: 18px;
+    --credit-size: 15px;
+    --credit-maxw: 320px;
+    --credit-pad: 5px 13px;
+
+    --h1-lines: 6;
+    --desc-size: 32px;
+    --desc-lh: 1.45;
+    --desc-mt: 30px;
+    --desc-maxw: none;
+    --desc-lines: 9;
+
+    --specs-gap: 18px;
+    --specs-pad-bottom: 64px;
+    --specs-gap-tight: 14px;
+    --spec-gap: 15px;
+    --spec-size: 33px;
+    --spec-size-tight: 29px;
+    --spec-icon: 36px;
+
+    --attrib-right: 34px;
+    --attrib-bottom: 24px;
+    --attrib-size: 19px;
+    --attrib-gap: 11px;
+    --attrib-b-size: 25px;
+    --attrib-b-pad: 9px 24px;
+}
+
+@import "slide_base.css";
+
+/* ---------- Composition portrait : visuel au-dessus ----------------------- */
+
+.photo-block { position: relative; flex: 0 0 880px; }
+
+.content {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 10px;
+    min-height: 0;
+}
+</style></head><body>
+<div class="card">
+<div class="watermark watermark--tr">$logo_mark</div>
+<div class="watermark watermark--bl">$logo_mark</div>
+<div class="photo-block">
+  $media
+  <span class="tag">$tag</span>
+</div>
+<div class="content">
+  <h1 style="font-size:${h1_size}px">$title</h1>
+  <p class="desc">$desc</p>
+  <div class="$specs_cls">$specs_html</div>
+</div>
+<div class="attrib">Tout le programme sur <b>lcl.bzh/prog</b></div>
+</div>
+</body></html>

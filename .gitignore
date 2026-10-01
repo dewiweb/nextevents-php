@@ -1,0 +1,4 @@
+datas/nextevent/*/html/
+datas/nextevent/*/manifest.txt
+datas/nextevent/cache/
+datas/nextevent/.gen.lock

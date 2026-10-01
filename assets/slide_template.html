@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<!--
+  ==========================================================================
+  Gabarit de diapo « événement » — PAYSAGE 16:9 (conçu 1920×1080)
+  ==========================================================================
+  Reprend la charte des cards « événement » de leschampslibres.fr.
+  Composition : carte plein écran avec sigle en filigrane, visuel à
+  gauche (pastille catégorie + crédit photo incrustés), textes à droite
+  (titre, description, specs), pied de page en bas à droite.
+
+  Rempli par nextevents/slide.py via string.Template :
+
+    Blocs injectés :
+      $$media        visuel : <img class="photo"> ou placeholder + logo
+      $$specs_html   lignes d'info (<div class="spec">icône + texte</div>)
+      $$logo_mark    sigle Champs Libres (SVG inline, currentColor)
+
+    Valeurs :
+      $$font_regular/$$font_medium  fontes Oldschool Grotesk (woff2 b64)
+      $$bg / $$dark   pastel de catégorie + variante foncée
+      $$ink           encre (#141414)
+      $$h1_size       taille du titre selon sa longueur (inline sur h1)
+      $$title/$$desc  textes échappés   $$tag   pastille catégorie
+      $$specs_cls     « specs » ou « specs specs--tight » (≥4 lignes)
+
+    Charte commune : dans slide_base.css (injecté à la ligne @import
+    ci-dessous). Ce gabarit ne contient que ses métriques (:root) et sa
+    composition propre (main/left/right).
+
+  Le rendu est autonome (fontes et images embarquées en data URI) :
+  le fichier HTML généré s'ouvre tel quel dans un navigateur.
+-->
+<html lang="fr"><head><meta charset="utf-8">
+<style>
+/* ---------- Métriques paysage 1920×1080 ---------------------------------- */
+:root {
+    --w: 1920px;  --h: 1080px;          /* canvas de conception */
+
+    --card-radius: 72px;
+    --card-pad: 0;                      /* marges portées par main/.right */
+    --card-gap: 0;
+
+    --wm-size: 820px;                   /* filigrane (sigle, coins) */
+    --wm-offset: -260px;                /* déborde hors de la carte */
+
+    --photo-radius: 48px;
+    --photo-pos: 50% 50%;               /* cadrage par défaut */
+
+    --tag-inset: 32px;                  /* pastille : recul du bord */
+    --tag-pad: 12px 36px;
+    --tag-size: 31px;
+
+    --credit-inset: 24px;               /* crédit photo : idem */
+    --credit-size: 18px;
+    --credit-maxw: 420px;
+    --credit-pad: 5px 16px;
+
+    --h1-lines: 4;                      /* clamp titre (taille = inline) */
+    --desc-size: 34px;
+    --desc-lh: 1.38;
+    --desc-mt: 36px;
+    --desc-maxw: 860px;                 /* colonne texte resserrée */
+    --desc-lines: 6;
+
+    --specs-gap: 26px;
+    --specs-pad-bottom: 0;              /* .right a déjà son padding */
+    --specs-gap-tight: 16px;
+    --spec-gap: 18px;                   /* icône ↔ texte */
+    --spec-size: 38px;
+    --spec-size-tight: 33px;
+    --spec-icon: auto;                  /* taille native 42px du SVG */
+
+    --attrib-right: 44px;               /* pied de page */
+    --attrib-bottom: 30px;
+    --attrib-size: 21px;
+    --attrib-gap: 14px;
+    --attrib-b-size: 28px;
+    --attrib-b-pad: 10px 28px;
+}
+
+@import "slide_base.css";
+
+/* ---------- Composition paysage : visuel | textes ------------------------- */
+
+main {
+    position: relative;
+    flex: 1;
+    display: flex;
+    gap: 70px;
+    padding: 54px 64px;
+    min-height: 0;
+}
+
+.left  { flex: 0 0 780px; position: relative; min-height: 0; }
+
+.right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 40px 0;
+    min-height: 0;
+}
+</style></head><body>
+<div class="card">
+<div class="watermark watermark--tr">$logo_mark</div>
+<div class="watermark watermark--bl">$logo_mark</div>
+<main>
+  <div class="left">
+    $media
+    <span class="tag">$tag</span>
+  </div>
+  <div class="right">
+    <h1 style="font-size:${h1_size}px">$title</h1>
+    <p class="desc">$desc</p>
+    <div class="$specs_cls">$specs_html</div>
+  </div>
+</main>
+<div class="attrib">Tout le programme sur <b>lcl.bzh/prog</b></div>
+</div>
+</body></html>
