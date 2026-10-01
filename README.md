@@ -68,14 +68,57 @@ ou intégrer dans la page des jauges :
 
 ## Réglages (`config.php`)
 
-- `OA_AGENDA` : slug ou uid numérique de l'agenda
-- `OA_API_KEY` : vide = export public legacy ; renseignée = API v2
-- `OA_CATEGORIES` : catégories OA affichées
-- `FORMATS` : `['portrait-screen', 'landscape']`
-- `SPECS_SHOW` / `SPEC_OVERRIDES` / `SPEC_DROPS` : mêmes règles que
-  l'app de bureau (masquer/forcer des specs, retirer un item)
-- `NEXT_LABEL` : préfixe des événements récurrents
-- `REFRESH_MIN` : âge max du manifest avant régénération
+Tous les réglages sont des constantes PHP — pas d'interface, on édite
+le fichier. La plupart reprennent à l'identique les réglages de l'app
+de bureau.
+
+### Agenda
+
+| Constante | Défaut | Description |
+|---|---|---|
+| `OA_AGENDA` | `'leschampslibres'` | slug lisible (`openagenda.com/fr/<slug>`) ou uid numérique |
+| `OA_API_KEY` | `''` | vide → export public legacy ; renseignée → API v2 officielle (timings filtrés serveur, meilleure couverture) |
+| `OA_CATEGORIES` | les 5 rubriques vitrine | valeurs `categorie` OpenAgenda : `rencontre`, `concert`, `projection`, `spectacle`, `evenement` (défaut) + `animation`, `atelier`, `atelier-4c`, `visite`, `exposition` |
+
+### Génération
+
+| Constante | Défaut | Description |
+|---|---|---|
+| `FORMATS` | `['portrait-screen', 'landscape']` | formats produits : `portrait-screen` (1080×1920, écran 9:16), `landscape` (1920×1080), `portrait` (A4) |
+| `MAX_EVENTS` | `0` | nombre max d'événements par format (0 = tous) |
+| `NEXT_LABEL` | `'Prochaine séance : '` | préfixe des événements récurrents (vide = date seule) |
+| `SERIES_MAP` | `grandstemoins = Les grands témoins` | `keyword-oa = Libellé` par ligne — marque la série éditoriale |
+
+### Specs affichées
+
+Mêmes règles que l'app de bureau :
+
+| Constante | Format | Description |
+|---|---|---|
+| `SPECS_SHOW` | `'Durée,Lieu,Tarif'` | liste à virgules des specs affichées ; vide = toutes ; `Date` est toujours conservée (nommage des fichiers) |
+| `SPEC_OVERRIDES` | `'Lieu = Hall'` par ligne | force ou ajoute une spec — ex. corriger un lieu OA qui désigne le bâtiment et pas la salle |
+| `SPEC_DROPS` | `'Dispositifs d''écoute amplifiée'` | items retirés à virgules — enlève une valeur d'une liste « · » sans masquer la spec entière |
+
+### Diaporama
+
+| Constante | Défaut | Description |
+|---|---|---|
+| `SLIDE_DELAY` | `8` | secondes d'affichage par diapo |
+| `SLIDE_TRANSITION` | `'fade'` | `fade`, `slide` ou `none` |
+| `SLIDE_TRANS_MS` | `1500` | durée de la transition |
+
+Ces trois réglages sont les **défauts servis par le manifest** — la page
+peut les surcharger par query sans toucher la config :
+`?delay=6&transition=slide&tdur=800`.
+
+### Fraîcheur et chemins
+
+| Constante | Défaut | Description |
+|---|---|---|
+| `REFRESH_MIN` | `60` | âge max du manifest (minutes) avant régénération paresseuse |
+| `DATA_DIR` | `datas/nextevent` | sortie des diapos — doit être inscriptible par PHP |
+| `CACHE_DIR` | `datas/nextevent/cache` | cache fontes + images |
+| `ASSET_DIR` | `assets` | gabarits — ne pas toucher |
 
 ## Différences avec l'app de bureau
 
