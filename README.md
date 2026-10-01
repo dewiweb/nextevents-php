@@ -30,10 +30,21 @@ Chrome kiosk ──> slideshow.php ──> iframes + fondu, re-poll du manifest
   Aucune tâche planifiée nécessaire — un cron quotidien sur
   `php front/gen.php` reste possible en complément.
 
+## Prérequis
+
+| Besoin | Détail |
+|---|---|
+| **PHP ≥ 7.4** | le code utilise les fonctions fléchées `fn()` et `??` — sur un PHP plus ancien, la syntaxe doit être adaptée (nous contacter) |
+| **`mbstring`** | requis (`mb_strlen`, `mb_substr`, `mb_strtoupper`) — quasi toujours présent |
+| **`curl` ou `allow_url_fopen`** | pour les requêtes HTTPS sortantes vers openagenda.com |
+| **`datas/` sous la racine web** | les diapos sont servies statiquement : `datas/nextevent/` doit être joignable en HTTP depuis le navigateur (à côté de `front/`, pas hors webroot) |
+| **Dossier inscriptible** | PHP écrit dans `datas/nextevent/` (diapos + cache) |
+
 ## Déploiement
 
 Copier l'arborescence dans l'application PHP existante (par ex. à côté
-de `front/jauges.php`) :
+de `front/jauges.php`) — **l'organisation relative doit être
+conservée** (`slideshow.php` référence `../datas/`, `../config.php`) :
 
 ```
 front/slideshow.php    ← page kiosk (ou iframe dans jauges.php)
@@ -56,6 +67,31 @@ ou intégrer dans la page des jauges :
 <iframe src="/front/slideshow.php?fmt=portrait-screen"
         style="border:0; width:100%; height:100%"></iframe>
 ```
+
+## Vérification
+
+Après le dépôt des fichiers, dans l'ordre :
+
+1. **Forcer une génération** :
+   `https://<serveur>/front/gen.php?force=1` doit répondre
+   `{"status":"ok","formats":{...},"events":N}` — si `error`, le
+   message indique la cause (HTTP, écriture, etc.)
+2. **Contrôler la sortie** : `datas/nextevent/portrait-screen/manifest.txt`
+   existe et liste les `slide-*.html` du dossier `html/` voisin
+3. **Ouvrir une diapo directement** :
+   `/datas/nextevent/portrait-screen/html/<premier-fichier>.html`
+   doit s'afficher pleine page — sinon `datas/` n'est pas sous la
+   racine web
+4. **Ouvrir la page kiosk** :
+   `/front/slideshow.php?fmt=portrait-screen` — les diapos défilent
+
+Si OpenAgenda est injoignable, le manifest existant continue d'être
+servi (l'écran ne se vide jamais) ; `gen.php` renvoie alors
+`{"status":"error", ...}` au prochain appel.
+
+En CLI, `php front/gen.php` force une génération (pratique pour un
+cron ou un test manuel) ; `php -l` sur les fichiers suffit à vérifier
+la syntaxe avant déploiement.
 
 ## Paramètres d'affichage (query)
 
@@ -135,3 +171,6 @@ peut les surcharger par query sans toucher la config :
 - Aucune clé exposée au navigateur ; l'export public ne requiert pas
   de clé.
 - Aucun port ou service supplémentaire : du PHP dans l'appli existante.
+- `gen.php` n'écrit que dans `datas/nextevent/` et est verrouillé par
+  `flock` ; `?force=1` peut être restreint par une règle du serveur web
+  (IP interne) si souhaité.
