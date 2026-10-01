@@ -149,8 +149,13 @@ function slide_template($orientation) {
 }
 
 function tpl_substitute($src, $vars) {
-    /** string.Template → PHP : $$ = $ littéral, $name et ${name}
-     *  sont des variables. */
+    /** Équivalent PHP de string.Template.substitute (Python) — les
+     *  gabarits viennent de l'app de bureau, on garde leur syntaxe :
+     *    $$       → $ littéral (utilisé dans les commentaires d'en-tête)
+     *    $name    → valeur
+     *    ${name}  → idem, forme accolée (utilisée pour $h1_size)
+     *  Ordre important : $$ protégé en \x01 AVANT la substitution,
+     *  restauré après — sinon $$font_regular serait remplacé. */
     $src = str_replace('$$', "\x01", $src);
     $src = preg_replace_callback(
         '/\$\{(\w+)\}/', fn($m) => '$' . $m[1], $src);
@@ -176,6 +181,8 @@ function slide_html($ev, $fonts, $orientation = 'landscape') {
                                           'UTF-8')
             . '</span></div>';
 
+    // taille du titre adaptée à sa longueur — les seuils sont
+    // calibrés sur les métriques de chaque gabarit (cf. slide.py)
     $n = mb_strlen($ev['title']);
     if ($portrait)
         $h1 = $orientation === 'portrait-screen'
@@ -191,6 +198,8 @@ function slide_html($ev, $fonts, $orientation = 'landscape') {
                . ($credit ? '<div class="credit">' . $credit . '</div>'
                           : '');
     } else {
+        // pas d'image : bloc visuel de remplacement — cercles
+        // concentriques + logo, dans la variante foncée de la carte
         $media = '<div class="photo photo--empty" style="background:'
                . $dark . '">'
                . '<svg viewBox="0 0 780 970" preserveAspectRatio="xMidYMid slice">'
@@ -220,6 +229,9 @@ function slide_html($ev, $fonts, $orientation = 'landscape') {
 }
 
 function slugify($text, $maxlen = 40) {
+    /** Titre → fragment de nom de fichier : minuscules, accents
+     *  translittérés, tirets. 40 car. max — le nom reste lisible dans
+     *  le manifest et stable entre deux générations. */
     static $map = ['à'=>'a','â'=>'a','ä'=>'a','é'=>'e','è'=>'e','ê'=>'e',
                    'ë'=>'e','î'=>'i','ï'=>'i','ô'=>'o','ö'=>'o','ù'=>'u',
                    'û'=>'u','ü'=>'u','ç'=>'c','œ'=>'oe','æ'=>'ae'];
@@ -248,8 +260,20 @@ function slide_name($ev, $idx) {
 }
 
 function apply_spec_prefs($events) {
-    /** specs_show / spec_overrides / spec_drops — après collecte,
-     *  identique quelle que soit la source. */
+    /** Préférences d'affichage des specs — appliquées APRÈS collecte,
+     *  donc identiques quelle que soit la source :
+     *   - SPECS_SHOW      : clés autorisées (vide = toutes ; « Date »
+     *                       est toujours conservée — requise pour le
+     *                       nommage des fichiers)
+     *   - SPEC_OVERRIDES  : « Clé = valeur »/ligne — remplace ou ajoute
+     *                       une spec (corriger un Lieu qui désigne le
+     *                       bâtiment plutôt que la salle)
+     *   - SPEC_DROPS      : fragments à virgules retirés des valeurs —
+     *                       les specs sont des listes jointes par
+     *                       « · » : on enlève un item sans perdre les
+     *                       autres (ex. « Dispositifs d'écoute
+     *                       amplifiée »)
+     *  Une clé forcée mais masquée par SPECS_SHOW n'est pas ajoutée. */
     $shown = array_filter(array_map('trim', explode(',', SPECS_SHOW)));
     $show = $shown ? array_flip($shown) : null;
     $drops = array_filter(array_map('trim', explode(',', SPEC_DROPS)));
@@ -279,7 +303,12 @@ function apply_spec_prefs($events) {
 
 function render_set($events, $fonts, $fmt) {
     /** Écrit les html/slide-*.html + manifest.txt d'un format dans
-     *  datas/nextevent/<fmt>/ et supprime les fichiers obsolètes. */
+     *  datas/nextevent/<fmt>/ et supprime les fichiers obsolètes.
+     *
+     *  IMPORTANT : les diapos passées disparaissent du manifest (les
+     *  fichiers sont supprimés) et les nouvelles apparaissent — la
+     *  page kiosk re-poll le manifest toutes les 15 s, la rotation
+     *  s'adapte seule sans toucher au kiosk. */
     $dest = DATA_DIR . '/' . $fmt;
     $html_dir = $dest . '/html';
     @mkdir($html_dir, 0777, true);

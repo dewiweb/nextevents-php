@@ -15,6 +15,11 @@ require_once dirname(__DIR__) . '/config.php';
 
 $fmt = $_GET['fmt'] ?? ($_GET['manifest'] ?? FORMATS[0]);
 $fmt = in_array($fmt, FORMATS, true) ? $fmt : FORMATS[0];
+
+// Les diapos sont servies en statique : le player iframe
+// '../datas/nextevent/<fmt>/html/<fichier>' — chemin RELATIF depuis
+// /front/. Si ce fichier est déplacé (autre dossier, autre depth),
+// ajuster $base ci-dessous ET vérifier que datas/ est sous webroot.
 $base = '../datas/nextevent/' . $fmt;
 $dir = dirname(__DIR__) . '/datas/nextevent/' . $fmt;
 

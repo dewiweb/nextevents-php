@@ -17,7 +17,11 @@ require_once __DIR__ . '/http.php';
 const OA_API = 'https://api.openagenda.com/v2';
 const OA_TZ = 'Europe/Paris';
 
-// libellés affichés sur les diapos (taxonomie OA ≠ wording du site)
+// — Correspondances catégories ————————————————————————————————————
+// La taxonomie OpenAgenda (colonne « categorie ») ne colle pas au
+// wording du site : « evenement » OA s'affiche « Temps fort » sur les
+// diapos, « atelier-4c » devient « Rendez-vous 4C ». Les valeurs
+// filtrables sont celles de OA_CATEGORIES dans config.php.
 const OA_TAG_LABEL = [
     'evenement' => 'Temps fort',
     'atelier-4c' => 'Rendez-vous 4C',
@@ -45,12 +49,17 @@ const ACCESS_PATTERNS = [
 // ———————————————————— formatage ————————————————————
 
 function oa_norm_ws($text) {
+    /** Espaces invisibles OpenAgenda (zero-width \xE2\x80\x8B,
+     *  insécable \xC2\xA0) → espace normal, sinon « 15h00Où » quand le
+     *  saut de ligne markdown est réduit. Conserve les marqueurs
+     *  markdown — version destinée au rendu HTML (cf. md_inline). */
     if (!$text) return '';
-    // espaces invisibles OA (zero-width, insécable) → espace normal
     return trim(str_replace(["\xE2\x80\x8B", "\xC2\xA0"], ' ', $text));
 }
 
 function oa_clean_md($text) {
+    /** Markdown-lite OA → texte plat (extraction, specs).
+     *  Le rendu utilise md_inline() qui, lui, INTERPRÈTE le markdown. */
     $text = oa_norm_ws($text);
     $text = preg_replace('/\*\*(.+?)\*\*/s', '$1', $text);
     $text = preg_replace('/__(.+?)__/s', '$1', $text);
@@ -61,6 +70,9 @@ function oa_clean_md($text) {
 }
 
 function oa_local($iso) {
+    /** ISO 8601 (UTC ou +0X:00) → [année, mois, jour, h, min] en heure
+     *  de Paris. 'Z' est normalisé car DateTime le tolère mal selon
+     *  les versions. Accepte aussi 'now' (utilisé pour « aujourd'hui »). */
     $d = new DateTime(str_replace('Z', '+00:00', $iso));
     $d->setTimezone(new DateTimeZone(OA_TZ));
     return [(int)$d->format('Y'), (int)$d->format('m'), (int)$d->format('d'),
@@ -94,9 +106,11 @@ function oa_date_spec($timings, $next_label) {
      *  timings : [[begin_local, end_local], ...] triés par début.
      *  Retourne [date_spec, nb, durée, _dt, _dt_end, pinned]. */
     $today = oa_day_key(oa_local('now'));
+    // créneaux dont la FIN est aujourd'hui ou plus tard — un événement
+    // commencé ce matin mais finissant ce soir reste « à venir »
     $future = array_values(array_filter(
         $timings, fn($t) => oa_day_key($t[1]) >= $today));
-    if (!$future) $future = $timings;
+    if (!$future) $future = $timings;  // tout est passé : dernière séance
     $first_b = $timings[0][0];
     $last_e = $timings[count($timings) - 1][1];
     $span = (oa_ts([$last_e[0], $last_e[1], $last_e[2], 0, 0])
@@ -128,7 +142,8 @@ function oa_date_spec($timings, $next_label) {
                && $today <= oa_day_key($last_e);
         return [$spec, 0, '', $first_b, $last_e, $pinned];
     }
-    // séance(s) ponctuelle(s) : la prochaine porte la date
+    // séance(s) ponctuelle(s) : la prochaine porte la date — préfixée
+    // « Prochaine séance : » (NEXT_LABEL) quand l'événement est récurrent
     $nx = $future[0];
     $spec = oa_fmt_day($nx[0]) . ' à ' . oa_fmt_time($nx[0]);
     if (count($future) > 1 && $next_label)
@@ -176,6 +191,9 @@ function parse_kv($text) {
 function oa_base_map($cat_value, $cat_label, $public_label, $kws, $cond,
                      $timings, $title, $url, $desc, $desc_long, $image,
                      $credit, $lieu, $access_codes) {
+    /** Construit l'événement normalisé — v2 et legacy convergent ici.
+     *  Produit : title, url, tag, specs{}, desc(_long/_md), series,
+     *  image, credit, _dt/_dt_end (bornes locales), pinned, _oa_cat. */
     $pairs = oa_timings_pairs($timings);
     if ($pairs) {
         [$date_spec, $n, $dur, $dt, $dt_end, $pinned] =
@@ -240,6 +258,8 @@ function oa_map_v2($e, $cat_opts, $pub_opts, $agenda) {
     $kws = array_values(array_filter(
         ($e['keywords']['fr'] ?? []) ?: []));
     $cond = $e['conditions']['fr'] ?? '';
+    // accessibilité du lieu : v2 renvoie soit un objet {code: bool},
+    // soit une liste [codes] selon les agendas — on normalise
     $acc = $e['accessibility'] ?? [];
     $acc_codes = is_array($acc) && array_keys($acc) !== range(0, count($acc) - 1)
         ? array_keys(array_filter($acc)) : array_values($acc);

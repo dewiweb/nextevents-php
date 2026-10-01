@@ -18,6 +18,8 @@ require_once dirname(__DIR__) . '/inc/render.php';
 set_time_limit(300);
 
 function manifest_stale($fmt) {
+    /** Manifest absent ou plus vieux que REFRESH_MIN minutes → la
+     *  régénération est due. C'est ce test qui rend le cron facultatif. */
     $f = DATA_DIR . "/$fmt/manifest.txt";
     return !is_file($f)
         || (time() - filemtime($f)) > REFRESH_MIN * 60;
@@ -26,11 +28,11 @@ function manifest_stale($fmt) {
 function gen_locked($force) {
     $lock = fopen(DATA_DIR . '/.gen.lock', 'c');
     if (!$lock) throw new RuntimeException('lock indisponible');
-    if (!flock($lock, LOCK_EX | LOCK_NB)) {
-        // une génération tourne déjà → ne rien faire, le manifest
-        // existant reste servi
+    // flock non bloquant : si une génération tourne déjà (appel
+    // simultané depuis un autre kiosk ou un cron), on sert le manifest
+    // existant — jamais de double run concurrent
+    if (!flock($lock, LOCK_EX | LOCK_NB))
         return ['status' => 'busy'];
-    }
     try {
         // re-test sous verrou : un autre run vient peut-être de finir
         $todo = array_values(array_filter(
