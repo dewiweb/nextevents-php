@@ -32,6 +32,12 @@ Chrome kiosk ──> slideshow.php ──> iframes + fondu, re-poll du manifest
 
 ## Prérequis
 
+> ⚠️ **Vérifier d'abord la version PHP du serveur.** Le code requiert
+> **PHP ≥ 7.4** (fonctions fléchées `fn()`, `??`).
+> Pour connaître la version : `php -v` en CLI, ou `phpinfo()` dans
+> l'appli existante. Si le serveur est plus ancien, la syntaxe doit
+> être adaptée — nous contacter avant de déployer.
+
 | Besoin | Détail |
 |---|---|
 | **PHP ≥ 7.4** | le code utilise les fonctions fléchées `fn()` et `??` — sur un PHP plus ancien, la syntaxe doit être adaptée (nous contacter) |
