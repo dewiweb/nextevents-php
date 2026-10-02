@@ -67,13 +67,20 @@ const qDelay = parseFloat(P.get('delay') || '');
 const qTrans = P.get('transition') || '';
 const qTdur = parseInt(P.get('tdur') || '');
 // mode « chunk » pour intégration dans jauges.php : joue les diapos
-// [OFFSET, OFFSET+LIMIT[ puis s'arrête en notifiant le parent
-const OFFSET = parseInt(P.get('offset') || '0');
+// [OFFSET, OFFSET+LIMIT[ puis s'arrête en notifiant le parent.
+// OFFSET vient de la query si fourni, sinon du localStorage : la
+// page mère peut recharger la même URL entre deux alternances
+// jauges ↔ diapos, on repart au groupe SUIVANT le dernier affiché.
+const LSKEY = 'nextevents-offset-' + FMT;
+const qOffset = parseInt(P.get('offset') || '');
+const OFFSET = isNaN(qOffset) ? 0 : qOffset;
+const RESUME = isNaN(qOffset);   // pas d'offset explicite → localStorage
 const LIMIT = parseInt(P.get('limit') || '0');   // 0 = tout
 const ONCE = P.get('once') === '1';
 
 let slides = [], idx = -1, cur = null, timer = null;
 let delay = 8, trans = 'fade', dur = 1500, done = false;
+let total = 0, effOffset = OFFSET;   // offset réellement joué
 
 /* La diapo est dessinée en pixels fixes (1080×1920) : on met
    l'iframe à l'échelle du viewport réel, centrée. */
@@ -135,6 +142,10 @@ function arm() {
   if (ONCE && idx === slides.length - 1) {
     timer = setTimeout(() => {
       done = true;
+      // position suivante mémorisée : la prochaine alternance
+      // reprendra au groupe d'après le dernier affiché (boucle mod nb)
+      const nxt = (effOffset + slides.length) % (total || slides.length);
+      try { localStorage.setItem(LSKEY, String(nxt)); } catch (e) {}
       if (window.parent !== window)
         window.parent.postMessage('nextevents:done', '*');
     }, Math.max(2, delay) * 1000);
@@ -150,9 +161,17 @@ async function poll() {
     delay = qDelay || r.delay || 8;
     trans = qTrans || r.transition || 'fade';
     dur = qTdur || r.tdur || 1500;
+    total = r.slides.length;
+    // fenêtre de travail : offset explicite (query) ou repris du
+    // localStorage (alternance jauges ↔ diapos, même URL rechargée)
+    let off = OFFSET;
+    if (RESUME) {
+      off = parseInt(localStorage.getItem(LSKEY) || '0') || 0;
+      if (off >= total) off = 0;   // manifest raccourci → clamp
+    }
+    effOffset = off;
     let list = r.slides;
-    // fenêtre demandée par la page mère (chunk offset/limit)
-    if (OFFSET || LIMIT) list = list.slice(OFFSET, LIMIT || undefined);
+    if (off || LIMIT) list = list.slice(off, LIMIT || undefined);
     const changed = JSON.stringify(list) !== JSON.stringify(slides);
     slides = list;
     document.getElementById('empty').style.display =

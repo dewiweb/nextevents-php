@@ -107,7 +107,7 @@ la syntaxe avant déploiement.
 | `delay` | `8` s | durée d'affichage par diapo |
 | `transition` | `fade` | `fade`, `slide`, `none` |
 | `tdur` | `1500` ms | durée de transition |
-| `offset`, `limit` | — | joue seulement les diapos `[offset, offset+limit[` |
+| `offset`, `limit` | — | joue seulement les diapos `[offset, offset+limit[` ; sans `offset` la position est reprise du `localStorage` |
 | `once` | — | `once=1` : après la dernière diapo de la fenêtre, émet `postMessage('nextevents:done')` vers la page mère puis s'arrête |
 
 ## Alterner avec la page des jauges
@@ -133,6 +133,22 @@ window.addEventListener('message', e => {
 La page mère connaît le nombre total de diapos via le manifest JSON :
 `fetch('/front/slideshow.php?manifest=portrait-screen')` →
 `r.slides.length` (repasser `offset` à 0 quand il dépasse la liste).
+
+**Reprise automatique** : si `offset` n'est **pas** passé en query,
+la position est mémorisée en `localStorage` — la page mère peut
+recharger la même URL d'iframe à chaque alternance, le diaporama
+repart au groupe **suivant** le dernier affiché (boucle modulo le
+nombre de diapos). Un `offset` explicite en query prend toujours le
+dessus.
+
+## Purge du dossier de données
+
+| Fichier | Comportement |
+|---|---|
+| `*/html/slide-*.html` | les diapos absentes du programme courant sont **supprimées** à chaque génération |
+| `*/manifest.txt` | réécrit à chaque génération |
+| `cache/img/*` | conservés (URLs versionnées → pas de re-téléchargement) ; purgés après `CACHE_IMG_DAYS` jours sans réutilisation (défaut 90, `0` = jamais) |
+| `cache/fonts/*` | conservés (2 fichiers woff2) |
 
 ## Réglages (`config.php`)
 
@@ -186,6 +202,7 @@ peut les surcharger par query sans toucher la config :
 | Constante | Défaut | Description |
 |---|---|---|
 | `REFRESH_MIN` | `60` | âge max du manifest (minutes) avant régénération paresseuse |
+| `CACHE_IMG_DAYS` | `90` | purge du cache images après N jours sans réutilisation (`0` = jamais) |
 | `DATA_DIR` | `datas/nextevent` | sortie des diapos — doit être inscriptible par PHP |
 | `CACHE_DIR` | `datas/nextevent/cache` | cache fontes + images |
 | `ASSET_DIR` | `assets` | gabarits — ne pas toucher |

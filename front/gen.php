@@ -63,6 +63,16 @@ function gen_locked($force) {
         unset($ev);
         $fonts = ensure_fonts();
 
+        // purge : les html/ obsolètes sont supprimés par render_set ;
+        // ici on nettoie le cache images (> CACHE_IMG_DAYS — les URLs
+        // OA sont versionnées, un fichier non retéléchargé depuis
+        // N jours n'est plus utilisé par un événement courant)
+        if (CACHE_IMG_DAYS)
+            foreach (glob(CACHE_DIR . '/img/*') ?: [] as $f)
+                if (is_file($f)
+                    && time() - filemtime($f) > CACHE_IMG_DAYS * 86400)
+                    @unlink($f);
+
         $done = [];
         foreach ($todo as $fmt)
             $done[$fmt] = count(render_set($events, $fonts, $fmt));

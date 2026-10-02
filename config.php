@@ -54,6 +54,10 @@ define('SLIDE_TRANS_MS', 1500);  // durée de transition
 // le manifest est régénéré s'il a plus de N minutes (à l'appel de la
 // page ou d'un cron qui tape front/gen.php — les deux fonctionnent)
 define('REFRESH_MIN', 60);
+// purge du cache images : fichiers non retéléchargés depuis N jours
+// supprimés à chaque génération (0 = jamais purgé ; les URLs OA sont
+// versionnées → un fichier inutilisé reste pur inoccupé)
+define('CACHE_IMG_DAYS', 90);
 
 // — Chemins (relatifs à la racine du projet) ——————————————————————
 define('DATA_DIR', __DIR__ . '/datas/nextevent');
