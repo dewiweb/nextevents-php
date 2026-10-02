@@ -169,7 +169,7 @@ de bureau.
 | Constante | Défaut | Description |
 |---|---|---|
 | `FORMATS` | `['portrait-screen', 'landscape']` | formats produits : `portrait-screen` (1080×1920, écran 9:16), `landscape` (1920×1080), `portrait` (A4) |
-| `MAX_EVENTS` | `0` | nombre max d'événements par format (0 = tous) — ex. `8` pour « les 8 prochaines » |
+| `MAX_EVENTS` | `12` | nombre max d'événements par format (0 = tous) — ex. `8` pour « les 8 prochaines » |
 | `DAY_OFFSET_MIN` | `0` | prochaine séance au plus tôt dans N jours — `1` = « à partir de demain » |
 | `DAY_OFFSET_MAX` | `null` | borne haute en jours — `MIN=1, MAX=1` = le programme de demain seul |
 | `NEXT_LABEL` | `'Prochaine séance : '` | préfixe des événements récurrents (vide = date seule) |

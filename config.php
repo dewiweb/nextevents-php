@@ -27,7 +27,7 @@ define('OA_CATEGORIES', [
 // 'landscape' (16:9) ou les deux
 define('FORMATS', ['portrait-screen', 'landscape']);
 // nombre max d'événements par format (0 = sans limite)
-define('MAX_EVENTS', 0);
+define('MAX_EVENTS', 12);
 // fenêtre en jours sur la PROCHAINE séance : 1 = « à partir de
 // demain » (annonce J+1) ; DAY_OFFSET_MAX null = pas de borne haute.
 // Ex. programme de demain seul : MIN=1, MAX=1.
