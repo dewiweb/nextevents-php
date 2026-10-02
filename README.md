@@ -185,6 +185,19 @@ Mêmes règles que l'app de bureau :
 | `SPEC_OVERRIDES` | `'Lieu = Hall'` par ligne | force ou ajoute une spec — ex. corriger un lieu OA qui désigne le bâtiment et pas la salle |
 | `SPEC_DROPS` | `'Dispositifs d''écoute amplifiée'` | items retirés à virgules — enlève une valeur d'une liste « · » sans masquer la spec entière |
 
+**Exclure une valeur précise sans masquer la spec** — exemple réel :
+les événements portent souvent `LSF · Dispositifs d'écoute amplifiée ·
+Surtitrage` en « Accessibilité ». Pour ne pas afficher l'écoute
+amplifiée (commodité du lieu plutôt qu'accessibilité de la séance)
+tout en gardant les autres mentions :
+
+```php
+define('SPEC_DROPS', 'Dispositifs d\'écoute amplifiée');
+```
+
+→ `LSF · Surtitrage`. Plusieurs valeurs séparées par des virgules ; si
+la spec n'a plus rien elle est omise.
+
 ### Diaporama
 
 | Constante | Défaut | Description |
