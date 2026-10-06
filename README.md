@@ -76,18 +76,18 @@ les diapos, le slideshow la prévient quand il a fini :
 ```html
 <!-- dans jauges.php -->
 <div id="jauges">… contenu actuel des jauges …</div>
-<iframe id="nx" style="border:0;position:fixed;inset:0;display:none"
-  src="/front/slideshow.php?fmt=portrait-screen&limit=2&once=1">
+<iframe id="nx" style="border:0;position:fixed;inset:0;display:none">
 </iframe>
 <script>
 const nx = document.getElementById('nx');
 const jauges = document.getElementById('jauges');
+const SRC = '/front/slideshow.php?fmt=portrait-screen&limit=2&once=1';
 
 // toutes les 60 s : cacher les jauges, lancer 2 diapos
 setInterval(() => {
   jauges.style.display = 'none';
-  nx.style.display = '';
-  nx.src = nx.src;              // recharge la MÊME url
+  nx.style.display = 'block';
+  nx.src = SRC;    // recharge la MÊME url
 }, 60000);
 
 // le slideshow a fini ses 2 diapos : retour aux jauges
@@ -99,6 +99,11 @@ window.addEventListener('message', e => {
 </script>
 ```
 
+> ⚠️ Ne mettez pas `src` sur l'iframe au chargement de la page :
+> cachée mais active, elle consommerait le premier groupe de diapos
+> en restant invisible. Posez `src` à la première alternation
+> (comme ci-dessus).
+
 Comment ça marche :
 
 - `limit=2` → le slideshow ne joue que **2 diapos**.
@@ -109,6 +114,11 @@ Comment ça marche :
   **suivant**, et boucle au début après les dernières. La page mère
   n'a rien à compter — elle recharge simplement la même URL, et peut
   couper l'iframe à n'importe quel moment.
+
+Une **page de démo** reproduit ce cycle avec de fausses jauges :
+`front/jauges-demo.php` (paramètres `?every=&limit=&delay=&fmt=`) —
+pratique pour valider l'alternance en local avec `php -S` avant
+d'intégrer dans la vraie page.
 
 > ⚠️ **Ne pas mettre `offset` dans l'URL.** Sa présence désactive la
 > reprise automatique : avec `offset=0` fixe, le diaporama rejoue

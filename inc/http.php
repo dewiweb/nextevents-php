@@ -15,12 +15,15 @@ function http_get($url, $timeout = 30) {
         $body = curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $type = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: '';
+        // curl_close() déprécié en 8.5 (inutile depuis 8.0 : les
+        // handles sont des objets libérés par le GC)
+        $close = PHP_VERSION_ID < 80000 ? 'curl_close' : null;
         if ($body === false || $code >= 400) {
             $err = curl_error($ch);
-            curl_close($ch);
+            if ($close) $close($ch);
             throw new RuntimeException("HTTP $code $url : $err");
         }
-        curl_close($ch);
+        if ($close) $close($ch);
         return [$body, explode(';', $type)[0]];
     }
     $ctx = stream_context_create(['http' => [
@@ -32,7 +35,13 @@ function http_get($url, $timeout = 30) {
     if ($body === false)
         throw new RuntimeException("HTTP KO $url");
     $type = '';
-    foreach ($http_response_header ?: [] as $h) {
+    // $http_response_header est déprécié en PHP 8.5 — la fonction
+    // dédiée n'existe qu'à partir de 8.4. L'accès en variable variable
+    // évite la dépréciation émise à la compilation du nom littéral.
+    $headers = function_exists('http_get_last_response_headers')
+        ? (http_get_last_response_headers() ?: [])
+        : (${'http_response_header'} ?? []);
+    foreach ($headers as $h) {
         if (stripos($h, 'Content-Type:') === 0)
             $type = trim(explode(';', substr($h, 13))[0]);
         if (preg_match('#^HTTP/\S+ (\d+)#', $h, $m) && (int)$m[1] >= 400)
