@@ -83,16 +83,26 @@ const nx = document.getElementById('nx');
 const jauges = document.getElementById('jauges');
 const SRC = '/front/slideshow.php?fmt=portrait-screen&limit=2&once=1';
 
-// toutes les 60 s : cacher les jauges, lancer 2 diapos
+// toutes les 60 s : recharger l'iframe (elle reste cachée et les
+// jauges visibles — sinon on réaffiche une frame l'ancienne
+// diapo, puis du noir, le temps que le player charge)
+let onDiapos = false;
 setInterval(() => {
-  jauges.style.display = 'none';
-  nx.style.display = 'block';
+  onDiapos = true;
   nx.src = SRC;    // recharge la MÊME url
 }, 60000);
+
+// player chargé → bascule jauges → diapos
+nx.addEventListener('load', () => {
+  if (!onDiapos) return;
+  jauges.style.display = 'none';
+  nx.style.display = 'block';
+});
 
 // le slideshow a fini ses 2 diapos : retour aux jauges
 window.addEventListener('message', e => {
   if (e.data !== 'nextevents:done') return;
+  onDiapos = false;
   nx.style.display = 'none';
   jauges.style.display = '';
 });
@@ -109,6 +119,10 @@ Comment ça marche :
 - `limit=2` → le slideshow ne joue que **2 diapos**.
 - `once=1` → à la fin, il envoie `postMessage('nextevents:done')`
   à la page mère puis se fige.
+- Avec `transition=fade` (défaut), la première diapo du groupe
+  apparaît en fondu depuis le noir et la dernière disparaît en
+  fondu **avant** le `postMessage` — pas de coupure franche à
+  l'alternance. `slide`/`none` gardent des bords francs.
 - **Sans `offset` dans l'URL**, le slideshow mémorise tout seul où il
   en est (`localStorage`) : chaque rechargement reprend au groupe
   **suivant**, et boucle au début après les dernières. La page mère
@@ -118,7 +132,12 @@ Comment ça marche :
 Une **page de démo** reproduit ce cycle avec de fausses jauges :
 `front/jauges-demo.php` (paramètres `?every=&limit=&delay=&fmt=`) —
 pratique pour valider l'alternance en local avec `php -S` avant
-d'intégrer dans la vraie page.
+d'intégrer dans la vraie page. Elle gère aussi le `PATH_INFO` :
+si la page est appelée avec un slash final ou derrière un proxy
+qui préfixe toutes les requêtes du chemin du script
+(`/front/jauges-demo.php/front/slideshow.php`), le fichier demandé
+est quand même servi — l'iframe n'affiche jamais une copie de la
+page jauges à la place des diapos.
 
 > ⚠️ **Ne pas mettre `offset` dans l'URL.** Sa présence désactive la
 > reprise automatique : avec `offset=0` fixe, le diaporama rejoue
@@ -170,6 +189,8 @@ d'interface. Les plus utiles :
 | « repart toujours sur les 2 premières diapos » | `offset=` présent dans l'URL | le retirer — la reprise est automatique |
 | | kiosk qui purge les données de site | autoriser `localStorage` pour le domaine |
 | « aucune diapo » à l'écran | `gen.php` jamais lancé ou en erreur | appeler `gen.php?force=1`, lire `error` |
+| la **dernière diapo du groupe précédent flashe** avant les nouvelles | iframe réaffichée avant la fin de son rechargement | réassigner `src` en laissant l'iframe **cachée** et ne la montrer qu'à l'événement `load` (voir l'exemple ci-dessus) |
+| flash « diapo portrait → paysage » au début d'un passage | ancienne version du player | `git pull` — depuis le fix, chaque diapo est masquée jusqu'à sa mise à l'échelle (`fit()`) |
 | | `datas/` hors racine web | ouvrir un `slide-*.html` directement pour vérifier |
 | `gen.php` renvoie `error` | OpenAgenda injoignable / pas de sortie HTTPS | vérifier `curl`/`allow_url_fopen` et le firewall |
 | écriture impossible | `datas/nextevent/` non inscriptible | droits en écriture pour PHP |

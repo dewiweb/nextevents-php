@@ -102,8 +102,27 @@ function show(name) {
   const wrap = document.createElement('div');
   wrap.className = 'slide';
   const f = document.createElement('iframe');
+  // masquée tant que fit() n'a pas tourné : sinon on voit une frame
+  // la diapo « brute » (non scalée) dans le cadre 100%×100% — flash
+  // portrait→paysage quand la fenêtre est verticale
+  f.style.visibility = 'hidden';
   f.src = BASE + '/html/' + encodeURIComponent(name);
-  f.onload = () => fit(f);
+  // entrée de groupe (pas de diapo précédente) : fondu d'apparition
+  // depuis le noir, démarré quand la diapo est vraiment visible —
+  // pas avant, sinon le fondu se ferait sur du vide
+  const fadeIn = !cur && trans === 'fade';
+  if (fadeIn) wrap.style.opacity = 0;
+  const reveal = () => {
+    if (f.style.visibility === 'visible') return;
+    f.style.visibility = 'visible';
+    if (fadeIn) {
+      wrap.getBoundingClientRect();
+      wrap.style.transition = `opacity ${dur}ms`;
+      wrap.style.opacity = 1;
+    }
+  };
+  f.onload = () => { fit(f); reveal(); };
+  setTimeout(reveal, 3000);   // repli si onload ne se déclenche pas
   wrap.appendChild(f);
   document.body.appendChild(wrap);
   const old = cur;
@@ -143,8 +162,17 @@ function arm() {
   if (ONCE && idx === slides.length - 1) {
     timer = setTimeout(() => {
       done = true;
-      if (window.parent !== window)
-        window.parent.postMessage('nextevents:done', '*');
+      // sortie de groupe : fondu de disparition vers le noir avant
+      // de rendre la main à la page mère (qui cache l'iframe au
+      // postMessage — sans lui, coupure franche)
+      if (cur && trans === 'fade') {
+        cur.style.transition = `opacity ${dur}ms`;
+        cur.style.opacity = 0;
+      }
+      setTimeout(() => {
+        if (window.parent !== window)
+          window.parent.postMessage('nextevents:done', '*');
+      }, trans === 'fade' ? dur + 50 : 0);
     }, Math.max(2, delay) * 1000);
   } else {
     timer = setTimeout(next, Math.max(2, delay) * 1000);

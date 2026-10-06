@@ -119,13 +119,21 @@ setInterval(() => {
 // cycle : jauges EVERY ms → 2 diapos → retour jauges
 setInterval(() => {
   onDiapos = true;
-  jauges.style.display = 'none';
-  nx.style.display = 'block';   // pas '' — le CSS pose display:none
   nx.src = SRC;                 // MÊME url → groupe suivant mémorisé
+  // l'iframe reste cachée pendant le rechargement et les jauges
+  // restent visibles : sinon on réaffiche une frame le dernier
+  // document (dernière diapo du groupe précédent) puis du noir
   document.getElementById('mode').textContent = 'diapos';
   remain = <?= (int)$every ?>;
   document.getElementById('cd').textContent = remain;
 }, EVERY);
+
+// player chargé → bascule jauges → diapos
+nx.addEventListener('load', () => {
+  if (!onDiapos) return;
+  jauges.style.display = 'none';
+  nx.style.display = 'block';   // pas '' — le CSS pose display:none
+});
 
 // le slideshow a fini ses diapos : retour aux jauges
 window.addEventListener('message', e => {
