@@ -1,251 +1,184 @@
 # nextevents-php
 
-Diaporama des prochains événements des **Champs Libres**, servi en HTML
-directement — port PHP léger de
+Affiche les **prochains événements des Champs Libres** en diaporama
+HTML — port PHP léger de
 [nextevents-desktop](https://github.com/dewiweb/nextevents-desktop),
 pensé pour le serveur qui héberge déjà l'affichage des jauges.
 
-Le navigateur du kiosk fait le rendu : **pas de PNG à générer**, pas de
-Chromium headless, aucune dépendance — juste du PHP (cURL ou
-`allow_url_fopen`) et un dossier inscriptible.
+C'est le navigateur du kiosk qui fait le rendu : **pas de PNG à
+générer**, pas de Chromium, aucune dépendance — juste PHP et un
+dossier inscriptible.
 
-## Principe
-
-```
-OpenAgenda ──fetch──> gen.php ──> datas/nextevent/<fmt>/html/slide-*.html
-                                  datas/nextevent/<fmt>/manifest.txt
-                                        │
-Chrome kiosk ──> slideshow.php ──> iframes + fondu, re-poll du manifest
-```
-
-- `gen.php` appelle l'**export public OpenAgenda** (aucune clé requise ;
-  l'API v2 est supportée si `OA_API_KEY` est configurée), mappe les
-  événements et écrit des **diapos HTML autonomes** (fontes Oldschool
-  Grotesk + images embarquées en base64 — aucun asset externe requis).
-- `slideshow.php` empile les diapos en `<iframe>`, les met à l'échelle
-  du viewport (le gabarit est dessiné en pixels fixes) et les fait
-  défiler en fondu.
-- **Régénération paresseuse** : si `manifest.txt` a plus de
-  `REFRESH_MIN` minutes, la page déclenche `gen.php` en tâche de fond.
-  Aucune tâche planifiée nécessaire — un cron quotidien sur
-  `php front/gen.php` reste possible en complément.
-
-## Prérequis
-
-> ⚠️ **Vérifier d'abord la version PHP du serveur.** Le code requiert
-> **PHP ≥ 7.4** (fonctions fléchées `fn()`, `??`).
-> Pour connaître la version : `php -v` en CLI, ou `phpinfo()` dans
-> l'appli existante. Si le serveur est plus ancien, la syntaxe doit
-> être adaptée — nous contacter avant de déployer.
-
-| Besoin | Détail |
-|---|---|
-| **PHP ≥ 7.4** | le code utilise les fonctions fléchées `fn()` et `??` — sur un PHP plus ancien, la syntaxe doit être adaptée (nous contacter) |
-| **`mbstring`** | requis (`mb_strlen`, `mb_substr`, `mb_strtoupper`) — quasi toujours présent |
-| **`curl` ou `allow_url_fopen`** | pour les requêtes HTTPS sortantes vers openagenda.com |
-| **`datas/` sous la racine web** | les diapos sont servies statiquement : `datas/nextevent/` doit être joignable en HTTP depuis le navigateur (à côté de `front/`, pas hors webroot) |
-| **Dossier inscriptible** | PHP écrit dans `datas/nextevent/` (diapos + cache) |
-
-## Déploiement
-
-Copier l'arborescence dans l'application PHP existante (par ex. à côté
-de `front/jauges.php`) — **l'organisation relative doit être
-conservée** (`slideshow.php` référence `../datas/`, `../config.php`) :
+## En 30 secondes
 
 ```
-front/slideshow.php    ← page kiosk (ou iframe dans jauges.php)
-front/gen.php          ← génération (lazy ou cron)
-inc/*.php
-assets/*.html|css|svg  ← gabarits de diapos (identiques au desktop)
-datas/nextevent/       ← dossier inscriptible par PHP
-config.php             ← agenda, catégories, délais, specs
+OpenAgenda ──> gen.php ──> datas/nextevent/<fmt>/html/slide-*.html
+                                 + manifest.txt
+kiosk Chrome ─> slideshow.php ─> affiche les diapos en fondu
 ```
 
-Puis pointer le kiosk Chrome sur :
+- `front/gen.php` récupère les événements OpenAgenda (export public,
+  **aucune clé requise**) et écrit des diapos HTML autonomes —
+  fontes et images embarquées en base64.
+- `front/slideshow.php` les fait défiler. Si les données sont trop
+  vieilles (`REFRESH_MIN`), il relance `gen.php` tout seul —
+  **aucun cron nécessaire**.
+- Si OpenAgenda est en panne, les dernières diapos connues continuent
+  de tourner — l'écran ne se vide jamais.
+
+## Déploiement en 3 étapes
+
+**1. Copier l'arborescence** dans l'application PHP existante, en
+conservant l'organisation relative (`slideshow.php` référence
+`../datas/` et `../config.php`) :
+
+```
+config.php             ← les réglages, à éditer
+front/slideshow.php    ← la page à afficher sur le kiosk
+front/gen.php          ← la génération (appelée toute seule)
+inc/  assets/          ← code et gabarits, ne pas toucher
+datas/nextevent/       ← sortie, doit être INSCRIPTIBLE par PHP
+```
+
+**2. Forcer une première génération** depuis le navigateur :
+
+```
+https://<serveur>/front/gen.php?force=1
+```
+
+→ doit répondre `{"status":"ok","events":N,...}`. Si `error`, le
+message dit pourquoi (HTTP, écriture…).
+
+**3. Ouvrir le diaporama** :
 
 ```
 https://<serveur>/front/slideshow.php?fmt=portrait-screen
 ```
 
-ou intégrer dans la page des jauges :
+→ les diapos défilent en plein écran. C'est fini.
+
+### Vérifier avant de déployer
+
+| Besoin | Vérification |
+|---|---|
+| **PHP ≥ 7.4** | `php -v` — le code utilise `fn()` et `??`. PHP plus ancien → nous contacter |
+| `mbstring` | quasi toujours présent |
+| `curl` ou `allow_url_fopen` | requêtes HTTPS vers openagenda.com |
+| `datas/` sous la racine web | ouvrir `/datas/nextevent/<fmt>/html/<fichier>.html` dans le navigateur : la diapo doit s'afficher |
+
+## Intégrer dans la page des jauges
+
+Le scénario : `jauges → 2 diapos → jauges → 2 diapos suivantes → …`
+
+Exemple **complet** à adapter — la page jauges décide quand montrer
+les diapos, le slideshow la prévient quand il a fini :
 
 ```html
-<iframe src="/front/slideshow.php?fmt=portrait-screen"
-        style="border:0; width:100%; height:100%"></iframe>
-```
-
-## Vérification
-
-Après le dépôt des fichiers, dans l'ordre :
-
-1. **Forcer une génération** :
-   `https://<serveur>/front/gen.php?force=1` doit répondre
-   `{"status":"ok","formats":{...},"events":N}` — si `error`, le
-   message indique la cause (HTTP, écriture, etc.)
-2. **Contrôler la sortie** : `datas/nextevent/portrait-screen/manifest.txt`
-   existe et liste les `slide-*.html` du dossier `html/` voisin
-3. **Ouvrir une diapo directement** :
-   `/datas/nextevent/portrait-screen/html/<premier-fichier>.html`
-   doit s'afficher pleine page — sinon `datas/` n'est pas sous la
-   racine web
-4. **Ouvrir la page kiosk** :
-   `/front/slideshow.php?fmt=portrait-screen` — les diapos défilent
-
-Si OpenAgenda est injoignable, le manifest existant continue d'être
-servi (l'écran ne se vide jamais) ; `gen.php` renvoie alors
-`{"status":"error", ...}` au prochain appel.
-
-En CLI, `php front/gen.php` force une génération (pratique pour un
-cron ou un test manuel) ; `php -l` sur les fichiers suffit à vérifier
-la syntaxe avant déploiement.
-
-## Paramètres d'affichage (query)
-
-| Param | Défaut | Description |
-|---|---|---|
-| `fmt` | `portrait-screen` | format des diapos |
-| `delay` | `8` s | durée d'affichage par diapo |
-| `transition` | `fade` | `fade`, `slide`, `none` |
-| `tdur` | `1500` ms | durée de transition |
-| `offset`, `limit` | — | joue seulement les diapos `[offset, offset+limit[` ; sans `offset` la position est reprise du `localStorage` |
-| `once` | — | `once=1` : après la dernière diapo de la fenêtre, émet `postMessage('nextevents:done')` vers la page mère puis s'arrête |
-
-## Alterner avec la page des jauges
-
-Cas d'usage : `jauges → 2 diapos → jauges → 2 diapos suivantes → …`
-Deux modes d'intégration — **ne pas mélanger** (passer `offset` en
-query désactive la reprise automatique).
-
-### Mode recommandé : reprise automatique (localStorage)
-
-```html
-<iframe id="nx" src="/front/slideshow.php?fmt=portrait-screen
-     &limit=2&once=1" style="border:0"></iframe>
+<!-- dans jauges.php -->
+<div id="jauges">… contenu actuel des jauges …</div>
+<iframe id="nx" style="border:0;position:fixed;inset:0;display:none"
+  src="/front/slideshow.php?fmt=portrait-screen&limit=2&once=1">
+</iframe>
 <script>
 const nx = document.getElementById('nx');
+const jauges = document.getElementById('jauges');
+
+// toutes les 60 s : cacher les jauges, lancer 2 diapos
+setInterval(() => {
+  jauges.style.display = 'none';
+  nx.style.display = '';
+  nx.src = nx.src;              // recharge la MÊME url
+}, 60000);
+
+// le slideshow a fini ses 2 diapos : retour aux jauges
 window.addEventListener('message', e => {
   if (e.data !== 'nextevents:done') return;
-  nx.style.display = 'none';   // → remettre la vue jauges
-  // à la prochaine alternance : nx.style.display = '' puis
-  // nx.src = nx.src  (recharger la MÊME url — la position est
-  // mémorisée, le groupe suivant jouera automatiquement)
+  nx.style.display = 'none';
+  jauges.style.display = '';
 });
 </script>
 ```
 
-Le slideshow joue les **2 prochaines diapos**, émet
-`postMessage('nextevents:done')` puis s'arrête sur la dernière.
-La position du groupe **suivant** est mémorisée en `localStorage`
-dès le début du chunk (boucle modulo le nombre de diapos) : la page
-mère peut couper ou recharger l'iframe à tout moment, la reprise
-fonctionne. `localStorage` étant par origine, il faut que le kiosk
-ne purge pas les données de site entre les alternances.
+Comment ça marche :
 
-### Mode manuel : offset piloté par la page mère
+- `limit=2` → le slideshow ne joue que **2 diapos**.
+- `once=1` → à la fin, il envoie `postMessage('nextevents:done')`
+  à la page mère puis se fige.
+- **Sans `offset` dans l'URL**, le slideshow mémorise tout seul où il
+  en est (`localStorage`) : chaque rechargement reprend au groupe
+  **suivant**, et boucle au début après les dernières. La page mère
+  n'a rien à compter — elle recharge simplement la même URL, et peut
+  couper l'iframe à n'importe quel moment.
 
-Si la page mère préfère gérer la position elle-même, elle passe
-`offset` explicitement (`slideshow.php?offset=0&limit=2&once=1`)
-et l'incrémente à chaque `nextevents:done` en rechargement
-l'iframe — le total des diapos est lisible via
-`fetch('/front/slideshow.php?manifest=portrait-screen')` →
-`r.slides.length` (repasser `offset` à 0 quand il dépasse la liste).
-Dans ce mode la reprise `localStorage` est ignorée : un `offset`
-statique (ex. toujours `0`) rejoue indéfiniment le même groupe.
+> ⚠️ **Ne pas mettre `offset` dans l'URL.** Sa présence désactive la
+> reprise automatique : avec `offset=0` fixe, le diaporama rejoue
+> indéfiniment les mêmes diapos. Si vous préférez piloter la position
+> vous-même, incrémentez `offset` à chaque cycle — le nombre total de
+> diapos est lisible via `slideshow.php?manifest=<fmt>`
+> (`r.slides.length`).
 
-## Purge du dossier de données
+## Paramètres de l'URL
 
-| Fichier | Comportement |
-|---|---|
-| `*/html/slide-*.html` | les diapos absentes du programme courant sont **supprimées** à chaque génération |
-| `*/manifest.txt` | réécrit à chaque génération |
-| `cache/img/*` | conservés (URLs versionnées → pas de re-téléchargement) ; purgés après `CACHE_IMG_DAYS` jours sans réutilisation (défaut 90, `0` = jamais) |
-| `cache/fonts/*` | conservés (2 fichiers woff2) |
+| Paramètre | Défaut | Effet |
+|---|---|---|
+| `fmt` | `portrait-screen` | format : `portrait-screen` (1080×1920), `landscape` (1920×1080) |
+| `delay` | `8` s | durée d'affichage par diapo |
+| `transition` | `fade` | `fade`, `slide`, `none` |
+| `tdur` | `1500` ms | durée de transition |
+| `limit` | tout | joue seulement N diapos |
+| `offset` | — | démarre à la diapo N (**désactive la reprise auto**) |
+| `once` | — | `once=1` : s'arrête après `limit` diapos + `postMessage` vers la page mère |
+| `manifest=<fmt>` | — | renvoie le JSON `{slides, delay, transition, tdur}` au lieu de la page |
 
 ## Réglages (`config.php`)
 
-Tous les réglages sont des constantes PHP — pas d'interface, on édite
-le fichier. La plupart reprennent à l'identique les réglages de l'app
-de bureau.
+Tout se règle dans `config.php` (constantes PHP commentées) — pas
+d'interface. Les plus utiles :
 
-### Agenda
-
-| Constante | Défaut | Description |
+| Constante | Défaut | Rôle |
 |---|---|---|
-| `OA_AGENDA` | `'leschampslibres'` | slug lisible (`openagenda.com/fr/<slug>`) ou uid numérique |
-| `OA_API_KEY` | `''` | vide → export public legacy ; renseignée → API v2 officielle (timings filtrés serveur, meilleure couverture) |
-| `OA_CATEGORIES` | les 5 rubriques vitrine | valeurs `categorie` OpenAgenda : `rencontre`, `concert`, `projection`, `spectacle`, `evenement` (défaut) + `animation`, `atelier`, `atelier-4c`, `visite`, `exposition` |
+| `OA_AGENDA` | `'leschampslibres'` | agenda OpenAgenda (slug ou uid) |
+| `OA_API_KEY` | `''` | vide → export public ; renseignée → API v2 officielle (plus complète) |
+| `OA_CATEGORIES` | les 5 vitrines | catégories OA : `rencontre`, `concert`, `projection`, `spectacle`, `evenement` + `animation`, `atelier`, `atelier-4c`, `visite`, `exposition` possibles |
+| `FORMATS` | `['portrait-screen','landscape']` | formats générés |
+| `MAX_EVENTS` | `12` | diapos max par format (`0` = toutes) |
+| `DAY_OFFSET_MIN` / `MAX` | `0` / `null` | fenêtre en jours sur la prochaine séance — `1,1` = demain seul |
+| `NEXT_LABEL` | `'Prochaine séance : '` | préfixe des récurrents (vide = date seule) |
+| `SERIES_MAP` | `grandstemoins = …` | `keyword-oa = Libellé` par ligne — marque la série |
+| `SPECS_SHOW` | `''` | specs affichées, virgules (vide = toutes ; `Date` toujours gardée) |
+| `SPEC_OVERRIDES` | `''` | `Clé = valeur` par ligne — force/ajoute une spec |
+| `SPEC_DROPS` | `''` | items retirés d'une spec, virgules — ex. `'Dispositifs d\'écoute amplifiée'` enlève cette mention d'`Accessibilité` sans masquer `LSF · Surtitrage` |
+| `SLIDE_DELAY` / `SLIDE_TRANSITION` / `SLIDE_TRANS_MS` | `8` / `fade` / `1500` | défauts servis par le manifest (surchargeables en query) |
+| `REFRESH_MIN` | `60` | âge max des données avant régénération auto |
+| `CACHE_IMG_DAYS` | `90` | purge du cache images (`0` = jamais) |
+| `DATA_DIR` / `CACHE_DIR` / `ASSET_DIR` | `datas/…` / `assets` | chemins — `DATA_DIR` doit être inscriptible |
 
-### Génération
+## Dépannage
 
-| Constante | Défaut | Description |
+| Symptôme | Cause probable | Correctif |
 |---|---|---|
-| `FORMATS` | `['portrait-screen', 'landscape']` | formats produits : `portrait-screen` (1080×1920, écran 9:16), `landscape` (1920×1080), `portrait` (A4) |
-| `MAX_EVENTS` | `12` | nombre max d'événements par format (0 = tous) — ex. `8` pour « les 8 prochaines » |
-| `DAY_OFFSET_MIN` | `0` | prochaine séance au plus tôt dans N jours — `1` = « à partir de demain » |
-| `DAY_OFFSET_MAX` | `null` | borne haute en jours — `MIN=1, MAX=1` = le programme de demain seul |
-| `NEXT_LABEL` | `'Prochaine séance : '` | préfixe des événements récurrents (vide = date seule) |
-| `SERIES_MAP` | `grandstemoins = Les grands témoins` | `keyword-oa = Libellé` par ligne — marque la série éditoriale |
+| « repart toujours sur les 2 premières diapos » | `offset=` présent dans l'URL | le retirer — la reprise est automatique |
+| | kiosk qui purge les données de site | autoriser `localStorage` pour le domaine |
+| « aucune diapo » à l'écran | `gen.php` jamais lancé ou en erreur | appeler `gen.php?force=1`, lire `error` |
+| | `datas/` hors racine web | ouvrir un `slide-*.html` directement pour vérifier |
+| `gen.php` renvoie `error` | OpenAgenda injoignable / pas de sortie HTTPS | vérifier `curl`/`allow_url_fopen` et le firewall |
+| écriture impossible | `datas/nextevent/` non inscriptible | droits en écriture pour PHP |
+| page blanche / erreur 500 | PHP < 7.4 | `php -v` — adapter la syntaxe (nous contacter) |
+| les diapos ne se renouvellent pas | `REFRESH_MIN` trop grand | un `cron` sur `php front/gen.php` force la mise à jour |
 
-### Specs affichées
+En CLI : `php front/gen.php` force une génération (cron possible) ;
+`php -l` sur les fichiers vérifie la syntaxe avant déploiement.
 
-Mêmes règles que l'app de bureau :
+## Détails techniques
 
-| Constante | Format | Description |
-|---|---|---|
-| `SPECS_SHOW` | `'Durée,Lieu,Tarif'` | liste à virgules des specs affichées ; vide = toutes ; `Date` est toujours conservée (nommage des fichiers) |
-| `SPEC_OVERRIDES` | `'Lieu = Hall'` par ligne | force ou ajoute une spec — ex. corriger un lieu OA qui désigne le bâtiment et pas la salle |
-| `SPEC_DROPS` | `'Dispositifs d''écoute amplifiée'` | items retirés à virgules — enlève une valeur d'une liste « · » sans masquer la spec entière |
-
-**Exclure une valeur précise sans masquer la spec** — exemple réel :
-les événements portent souvent `LSF · Dispositifs d'écoute amplifiée ·
-Surtitrage` en « Accessibilité ». Pour ne pas afficher l'écoute
-amplifiée (commodité du lieu plutôt qu'accessibilité de la séance)
-tout en gardant les autres mentions :
-
-```php
-define('SPEC_DROPS', 'Dispositifs d\'écoute amplifiée');
-```
-
-→ `LSF · Surtitrage`. Plusieurs valeurs séparées par des virgules ; si
-la spec n'a plus rien elle est omise.
-
-### Diaporama
-
-| Constante | Défaut | Description |
-|---|---|---|
-| `SLIDE_DELAY` | `8` | secondes d'affichage par diapo |
-| `SLIDE_TRANSITION` | `'fade'` | `fade`, `slide` ou `none` |
-| `SLIDE_TRANS_MS` | `1500` | durée de la transition |
-
-Ces trois réglages sont les **défauts servis par le manifest** — la page
-peut les surcharger par query sans toucher la config :
-`?delay=6&transition=slide&tdur=800`.
-
-### Fraîcheur et chemins
-
-| Constante | Défaut | Description |
-|---|---|---|
-| `REFRESH_MIN` | `60` | âge max du manifest (minutes) avant régénération paresseuse |
-| `CACHE_IMG_DAYS` | `90` | purge du cache images après N jours sans réutilisation (`0` = jamais) |
-| `DATA_DIR` | `datas/nextevent` | sortie des diapos — doit être inscriptible par PHP |
-| `CACHE_DIR` | `datas/nextevent/cache` | cache fontes + images |
-| `ASSET_DIR` | `assets` | gabarits — ne pas toucher |
-
-## Différences avec l'app de bureau
-
-- Pas de rendu PNG ni de « diapo du jour » — le kiosk affiche le HTML.
-- Source unique : **OpenAgenda** (pas de scraping du site) → la
-  couleur éditoriale des cartes n'est pas disponible, les diapos
-  utilisent le fond neutre par défaut.
-- Pas de synchro FTP/SMB : les fichiers restent sur le serveur.
-
-## Sécurité
-
-- Un seul flux sortant : HTTPS vers `openagenda.com` (+
-  `leschampslibres.fr` pour les deux fichiers de fontes, mis en cache).
-- Aucune clé exposée au navigateur ; l'export public ne requiert pas
-  de clé.
-- Aucun port ou service supplémentaire : du PHP dans l'appli existante.
-- `gen.php` n'écrit que dans `datas/nextevent/` et est verrouillé par
-  `flock` ; `?force=1` peut être restreint par une règle du serveur web
-  (IP interne) si souhaité.
+- **Purge automatique** : les `slide-*.html` hors programme sont
+  supprimés à chaque génération ; `manifest.txt` est réécrit ; le
+  cache images est purgé après `CACHE_IMG_DAYS` jours sans usage.
+- **`gen.php`** est verrouillé par `flock` (pas de double exécution) ;
+  `?force=1` peut être restreint par IP côté serveur web.
+- **Sécurité** : un seul flux sortant (HTTPS vers `openagenda.com` +
+  `leschampslibres.fr` pour les fontes, mises en cache) ; aucune clé
+  exposée ; aucun port ni service supplémentaire.
+- **Différences avec l'app de bureau** : pas de PNG ni de « diapo du
+  jour » ; source OpenAgenda uniquement (pas de scraping du site →
+  fond neutre sur les diapos) ; pas de synchro FTP/SMB.
