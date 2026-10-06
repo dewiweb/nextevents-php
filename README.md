@@ -113,33 +113,44 @@ la syntaxe avant déploiement.
 ## Alterner avec la page des jauges
 
 Cas d'usage : `jauges → 2 diapos → jauges → 2 diapos suivantes → …`
-La page mère (jauges.php) pilote le cycle — le slideshow joue un
-**groupe de N diapos** puis notifie la fin via `postMessage` :
+Deux modes d'intégration — **ne pas mélanger** (passer `offset` en
+query désactive la reprise automatique).
+
+### Mode recommandé : reprise automatique (localStorage)
 
 ```html
 <iframe id="nx" src="/front/slideshow.php?fmt=portrait-screen
-     &offset=0&limit=2&once=1" style="border:0"></iframe>
+     &limit=2&once=1" style="border:0"></iframe>
 <script>
-let offset = 0;
+const nx = document.getElementById('nx');
 window.addEventListener('message', e => {
   if (e.data !== 'nextevents:done') return;
-  offset += 2;                          // groupe suivant
-  // → ici : remettre la vue jauges (ou recharger l'iframe
-  //   avec offset à jour pour la prochaine alternance)
+  nx.style.display = 'none';   // → remettre la vue jauges
+  // à la prochaine alternance : nx.style.display = '' puis
+  // nx.src = nx.src  (recharger la MÊME url — la position est
+  // mémorisée, le groupe suivant jouera automatiquement)
 });
 </script>
 ```
 
-La page mère connaît le nombre total de diapos via le manifest JSON :
+Le slideshow joue les **2 prochaines diapos**, émet
+`postMessage('nextevents:done')` puis s'arrête sur la dernière.
+La position du groupe **suivant** est mémorisée en `localStorage`
+dès le début du chunk (boucle modulo le nombre de diapos) : la page
+mère peut couper ou recharger l'iframe à tout moment, la reprise
+fonctionne. `localStorage` étant par origine, il faut que le kiosk
+ne purge pas les données de site entre les alternances.
+
+### Mode manuel : offset piloté par la page mère
+
+Si la page mère préfère gérer la position elle-même, elle passe
+`offset` explicitement (`slideshow.php?offset=0&limit=2&once=1`)
+et l'incrémente à chaque `nextevents:done` en rechargement
+l'iframe — le total des diapos est lisible via
 `fetch('/front/slideshow.php?manifest=portrait-screen')` →
 `r.slides.length` (repasser `offset` à 0 quand il dépasse la liste).
-
-**Reprise automatique** : si `offset` n'est **pas** passé en query,
-la position est mémorisée en `localStorage` — la page mère peut
-recharger la même URL d'iframe à chaque alternance, le diaporama
-repart au groupe **suivant** le dernier affiché (boucle modulo le
-nombre de diapos). Un `offset` explicite en query prend toujours le
-dessus.
+Dans ce mode la reprise `localStorage` est ignorée : un `offset`
+statique (ex. toujours `0`) rejoue indéfiniment le même groupe.
 
 ## Purge du dossier de données
 

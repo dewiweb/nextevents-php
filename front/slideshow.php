@@ -81,6 +81,7 @@ const ONCE = P.get('once') === '1';
 let slides = [], idx = -1, cur = null, timer = null;
 let delay = 8, trans = 'fade', dur = 1500, done = false;
 let total = 0, effOffset = OFFSET;   // offset réellement joué
+let sessionOff = null, posSaved = false;
 
 /* La diapo est dessinée en pixels fixes (1080×1920) : on met
    l'iframe à l'échelle du viewport réel, centrée. */
@@ -142,10 +143,6 @@ function arm() {
   if (ONCE && idx === slides.length - 1) {
     timer = setTimeout(() => {
       done = true;
-      // position suivante mémorisée : la prochaine alternance
-      // reprendra au groupe d'après le dernier affiché (boucle mod nb)
-      const nxt = (effOffset + slides.length) % (total || slides.length);
-      try { localStorage.setItem(LSKEY, String(nxt)); } catch (e) {}
       if (window.parent !== window)
         window.parent.postMessage('nextevents:done', '*');
     }, Math.max(2, delay) * 1000);
@@ -163,15 +160,30 @@ async function poll() {
     dur = qTdur || r.tdur || 1500;
     total = r.slides.length;
     // fenêtre de travail : offset explicite (query) ou repris du
-    // localStorage (alternance jauges ↔ diapos, même URL rechargée)
+    // localStorage (alternance jauges ↔ diapos, même URL rechargée).
+    // L'offset repris est figé pour le chargement courant : le re-lire
+    // à chaque poll renverrait la position « groupe suivant » écrite
+    // ci-dessous et ferait sauter le player en cours de chunk.
     let off = OFFSET;
     if (RESUME) {
-      off = parseInt(localStorage.getItem(LSKEY) || '0') || 0;
-      if (off >= total) off = 0;   // manifest raccourci → clamp
+      if (sessionOff === null) {
+        sessionOff = parseInt(localStorage.getItem(LSKEY) || '0') || 0;
+        if (sessionOff >= total) sessionOff = 0;  // manifest raccourci
+      }
+      off = sessionOff;
     }
     effOffset = off;
     let list = r.slides;
-    if (off || LIMIT) list = list.slice(off, LIMIT || undefined);
+    if (off || LIMIT) list = list.slice(off, off + LIMIT || undefined);
+    // position du prochain groupe mémorisée dès le chunk déterminé —
+    // pas seulement en fin du dernier délai : si la page mère coupe
+    // le player avant ce moment (timing propre, diapo cachée), la
+    // prochaine alternance repart quand même au groupe suivant
+    if (RESUME && !posSaved && LIMIT && list.length) {
+      posSaved = true;
+      const nxt = (off + list.length) % (total || list.length);
+      try { localStorage.setItem(LSKEY, String(nxt)); } catch (e) {}
+    }
     const changed = JSON.stringify(list) !== JSON.stringify(slides);
     slides = list;
     document.getElementById('empty').style.display =
