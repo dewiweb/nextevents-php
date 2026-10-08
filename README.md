@@ -193,6 +193,8 @@ d'interface. Les plus utiles :
 | flash « diapo portrait → paysage » au début d'un passage | ancienne version du player | `git pull` — depuis le fix, chaque diapo est masquée jusqu'à sa mise à l'échelle (`fit()`) |
 | | `datas/` hors racine web | ouvrir un `slide-*.html` directement pour vérifier |
 | `gen.php` renvoie `error` | OpenAgenda injoignable / pas de sortie HTTPS | vérifier `curl`/`allow_url_fopen` et le firewall |
+| erreur `HTTP impossible : extension curl absente ET allow_url_fopen=0` | PHP compilé/configuré sans transport HTTP | activer `extension=curl` dans `php.ini` (recommandé) ou `allow_url_fopen=On` |
+| erreur `SSL certificate problem` (local Windows) | PHP portable sans bundle CA | `curl.cainfo=` et `openssl.cafile=` → chemin d'un `cacert.pem` dans `php.ini`, ou `HTTP_VERIFY_SSL=false` dans `config.php` (test local seulement) |
 | écriture impossible | `datas/nextevent/` non inscriptible | droits en écriture pour PHP |
 | page blanche / erreur 500 | PHP < 7.4 | `php -v` — adapter la syntaxe (nous contacter) |
 | les diapos ne se renouvellent pas | `REFRESH_MIN` trop grand | un `cron` sur `php front/gen.php` force la mise à jour |

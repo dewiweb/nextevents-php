@@ -10,7 +10,8 @@ function http_get($url, $timeout = 30) {
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_TIMEOUT => $timeout,
             CURLOPT_USERAGENT => 'nextevents-php/1.0',
-            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYPEER => HTTP_VERIFY_SSL,
+            CURLOPT_SSL_VERIFYHOST => HTTP_VERIFY_SSL ? 2 : 0,
         ]);
         $body = curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -20,16 +21,35 @@ function http_get($url, $timeout = 30) {
         $close = PHP_VERSION_ID < 80000 ? 'curl_close' : null;
         if ($body === false || $code >= 400) {
             $err = curl_error($ch);
+            // cause fréquente sur PHP local Windows : pas de bundle
+            // CA configuré — le message d'origine (« SSL certificate
+            // problem ») ne dit pas comment réparer
+            if (stripos($err, 'certificate') !== false
+                || stripos($err, 'SSL') !== false)
+                $err .= ' — indiquer un bundle CA dans php.ini'
+                     . ' (curl.cainfo / openssl.cafile = chemin vers'
+                     . ' cacert.pem) ou HTTP_VERIFY_SSL=false en local';
             if ($close) $close($ch);
             throw new RuntimeException("HTTP $code $url : $err");
         }
         if ($close) $close($ch);
         return [$body, explode(';', $type)[0]];
     }
+    // pas de cURL : seul recours = wrappers URL — bloqués quand
+    // allow_url_fopen=0 (cas signalé par le SI). Message explicite
+    // plutôt qu'un échec muet de file_get_contents.
+    if (!ini_get('allow_url_fopen'))
+        throw new RuntimeException(
+            "HTTP impossible : extension curl absente ET"
+            . " allow_url_fopen=0 — activer extension=curl dans php.ini"
+        );
     $ctx = stream_context_create(['http' => [
         'method' => 'GET', 'timeout' => $timeout,
         'user_agent' => 'nextevents-php/1.0',
         'ignore_errors' => true,
+    ], 'ssl' => [
+        'verify_peer' => HTTP_VERIFY_SSL,
+        'verify_peer_name' => HTTP_VERIFY_SSL,
     ]]);
     $body = @file_get_contents($url, false, $ctx);
     if ($body === false)

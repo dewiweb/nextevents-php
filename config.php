@@ -15,6 +15,14 @@ define('OA_AGENDA', 'leschampslibres');
 // utilisée (timings filtrés côté serveur, meilleure couverture)
 define('OA_API_KEY', '');
 
+// — Transport HTTP ———————————————————————————————————————————————
+// cURL est utilisé s'il est présent, sinon les wrappers URL
+// (file_get_contents — nécessite allow_url_fopen=1). Sur un PHP
+// local Windows sans bundle CA, les requêtes HTTPS échouent en
+// SSL : renseigner curl.cainfo/openssl.cafile dans php.ini, ou
+// passer false ici UNIQUEMENT pour tester en local.
+define('HTTP_VERIFY_SSL', true);
+
 // — Catégories affichées (valeurs « categorie » OpenAgenda) ————————
 // vitrine historique : les 5 rubriques principales. Ajouter
 // 'animation','atelier','atelier-4c','visite' pour tout couvrir.
