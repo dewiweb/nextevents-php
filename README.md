@@ -70,6 +70,45 @@ https://<serveur>/front/slideshow.php?fmt=portrait-screen
 
 Le scénario : `jauges → 2 diapos → jauges → 2 diapos suivantes → …`
 
+### Option A — sans toucher à la page existante : `kiosk.php`
+
+Si le kiosk affiche **une seule URL** au démarrage, le plus simple est
+de l'inverser : `front/kiosk.php` encapsule la page jauges existante
+dans une iframe jamais déchargée et y superpose les diapos par cycles.
+**Aucune modification du code existant** — le mécanisme de
+rafraîchissement de la page jauges (reload, AJAX…) tourne en tâche
+de fond et les données restent fraîches :
+
+```
+https://<serveur>/front/kiosk.php?jauges=https://<jauges>/page.php&every=60&limit=2
+```
+
+- `jauges` : URL de la page à encapsuler — ou constante
+  `KIOSK_JAUGES` dans `config.php`, qui a **priorité** (recommandé en
+  prod : l'URL du kiosk reste propre et l'iframe ne peut pas être
+  détournée vers une URL arbitraire)
+- `every` : secondes de jauges entre deux passages (défaut 60)
+- `msg` : si posé (ex. `msg=jauges:done`), la bascule part dès que la
+  page encapsulée émet `parent.postMessage('jauges:done','*')` —
+  durée d'affichage **adaptative** (pagination variable côté
+  existant). `every` devient alors la borne max en l'absence du
+  message
+- `limit` : diapos par passage (défaut 2, `0` = tout le manifest)
+- `fmt`, `delay`, `tdur`, `transition` : passés au slideshow
+
+La bascule est **sans latence** : l'iframe diapos précharge le groupe
+suivant pendant la phase jauges (`hold=1` du player) et le wrapper
+envoie `nextevents:go` au moment de la bascule — la première diapo
+est déjà rendue.
+
+Seule exigence : la page jauges doit accepter d'être chargée en
+iframe (pas de `X-Frame-Options: DENY` ni `frame-ancestors` trop
+strict sur le vhost qui la sert —
+`curl -sI <url> | grep -iE 'x-frame|security'` pour vérifier). Si aucune diapo n'est générée ou si le player ne rend
+pas la main, le wrapper reste/revient sur les jauges — jamais bloqué.
+
+### Option B — intégrer le slideshow dans la page existante
+
 Exemple **complet** à adapter — la page jauges décide quand montrer
 les diapos, le slideshow la prévient quand il a fini :
 
@@ -81,44 +120,55 @@ les diapos, le slideshow la prévient quand il a fini :
 <script>
 const nx = document.getElementById('nx');
 const jauges = document.getElementById('jauges');
-const SRC = '/front/slideshow.php?fmt=portrait-screen&limit=2&once=1';
+// hold=1 : le player pose sa 1re diapo puis attend le 'go' — on peut
+// donc précharger l'iframe pendant que les jauges sont visibles et
+// basculer SANS latence
+const SRC = '/front/slideshow.php?fmt=portrait-screen&limit=2&once=1&hold=1';
 
-// toutes les 60 s : recharger l'iframe (elle reste cachée et les
-// jauges visibles — sinon on réaffiche une frame l'ancienne
-// diapo, puis du noir, le temps que le player charge)
+// phase jauges : précharger le groupe suivant (même URL → le player
+// reprend tout seul au groupe suivant via localStorage)
+function preload() { nx.src = SRC; }
+
 let onDiapos = false;
-setInterval(() => {
-  onDiapos = true;
-  nx.src = SRC;    // recharge la MÊME url
-}, 60000);
 
-// player chargé → bascule jauges → diapos
-nx.addEventListener('load', () => {
-  if (!onDiapos) return;
+// bascule jauges → diapos : la 1re diapo est déjà rendue — le 'go'
+// démarre les délais immédiatement, pas de noir ni d'attente
+function showDiapos() {
+  onDiapos = true;
   jauges.style.display = 'none';
   nx.style.display = 'block';
+  nx.contentWindow.postMessage('nextevents:go', '*');
+}
+setInterval(showDiapos, 60000);   // ou votre propre déclencheur
+
+// player fini de charger après la bascule (boot, réseau lent) :
+// on relance le 'go' — le player mémorise aussi un go arrivé tôt
+nx.addEventListener('load', () => {
+  if (onDiapos) nx.contentWindow.postMessage('nextevents:go', '*');
 });
 
-// le slideshow a fini ses 2 diapos : retour aux jauges
+// le slideshow a fini ses diapos : retour aux jauges + préchargement
+// du groupe suivant
 window.addEventListener('message', e => {
   if (e.data !== 'nextevents:done') return;
   onDiapos = false;
   nx.style.display = 'none';
   jauges.style.display = '';
+  preload();
 });
+preload();
 </script>
 ```
-
-> ⚠️ Ne mettez pas `src` sur l'iframe au chargement de la page :
-> cachée mais active, elle consommerait le premier groupe de diapos
-> en restant invisible. Posez `src` à la première alternation
-> (comme ci-dessus).
 
 Comment ça marche :
 
 - `limit=2` → le slideshow ne joue que **2 diapos**.
 - `once=1` → à la fin, il envoie `postMessage('nextevents:done')`
   à la page mère puis se fige.
+- `hold=1` → la 1re diapo est posée dès le chargement puis le player
+  attend `postMessage('nextevents:go')` de la page mère — l'iframe
+  peut donc être **préchargée** pendant la phase jauges et la bascule
+  se fait sans latence (pas de noir, pas d'attente de chargement).
 - Avec `transition=fade` (défaut), la première diapo du groupe
   apparaît en fondu depuis le noir et la dernière disparaît en
   fondu **avant** le `postMessage` — pas de coupure franche à
@@ -157,6 +207,7 @@ page jauges à la place des diapos.
 | `limit` | tout | joue seulement N diapos |
 | `offset` | — | démarre à la diapo N (**désactive la reprise auto**) |
 | `once` | — | `once=1` : s'arrête après `limit` diapos + `postMessage` vers la page mère |
+| `hold` | — | `hold=1` : 1re diapo posée au chargement, démarrage au `postMessage('nextevents:go')` de la page mère |
 | `manifest=<fmt>` | — | renvoie le JSON `{slides, delay, transition, tdur}` au lieu de la page |
 
 ## Réglages (`config.php`)
@@ -179,7 +230,9 @@ d'interface. Les plus utiles :
 | `SPEC_DROPS` | `''` | items retirés d'une spec, virgules — ex. `'Dispositifs d\'écoute amplifiée'` enlève cette mention d'`Accessibilité` sans masquer `LSF · Surtitrage` |
 | `SLIDE_DELAY` / `SLIDE_TRANSITION` / `SLIDE_TRANS_MS` | `8` / `fade` / `1500` | défauts servis par le manifest (surchargeables en query) |
 | `REFRESH_MIN` | `60` | âge max des données avant régénération auto |
-| `CACHE_IMG_DAYS` | `90` | purge du cache images (`0` = jamais) |
+| `CACHE_IMG_DAYS` | `30` | purge du cache images (`0` = jamais) |
+| `KIOSK_JAUGES` | `''` | URL fixe encapsulée par `kiosk.php` (vide = `?jauges=` requis) |
+| `GEN_TOKEN` | `''` | si renseigné, `gen.php?force=1` exige `&token=…` (cron) |
 | `DATA_DIR` / `CACHE_DIR` / `ASSET_DIR` | `datas/…` / `assets` | chemins — `DATA_DIR` doit être inscriptible |
 
 ## Dépannage
@@ -189,6 +242,7 @@ d'interface. Les plus utiles :
 | « repart toujours sur les 2 premières diapos » | `offset=` présent dans l'URL | le retirer — la reprise est automatique |
 | | kiosk qui purge les données de site | autoriser `localStorage` pour le domaine |
 | « aucune diapo » à l'écran | `gen.php` jamais lancé ou en erreur | appeler `gen.php?force=1`, lire `error` |
+| **latence / écran noir à la bascule** jauges → diapos | iframe chargée au moment de la bascule (player + diapo base64 à télécharger) | `hold=1` + précharger l'iframe pendant la phase jauges + envoyer `postMessage('nextevents:go')` à la bascule (exemple ci-dessus) |
 | la **dernière diapo du groupe précédent flashe** avant les nouvelles | iframe réaffichée avant la fin de son rechargement | réassigner `src` en laissant l'iframe **cachée** et ne la montrer qu'à l'événement `load` (voir l'exemple ci-dessus) |
 | flash « diapo portrait → paysage » au début d'un passage | ancienne version du player | `git pull` — depuis le fix, chaque diapo est masquée jusqu'à sa mise à l'échelle (`fit()`) |
 | | `datas/` hors racine web | ouvrir un `slide-*.html` directement pour vérifier |
@@ -208,7 +262,14 @@ En CLI : `php front/gen.php` force une génération (cron possible) ;
   supprimés à chaque génération ; `manifest.txt` est réécrit ; le
   cache images est purgé après `CACHE_IMG_DAYS` jours sans usage.
 - **`gen.php`** est verrouillé par `flock` (pas de double exécution) ;
-  `?force=1` peut être restreint par IP côté serveur web.
+  `?force=1` peut être restreint par IP côté serveur web ou par
+  `GEN_TOKEN` dans `config.php` (`gen.php?force=1&token=…` — le cron
+  inclut le token, le CLI n'est pas concerné).
+- **`kiosk.php`** encapsule une page externe : fixer `KIOSK_JAUGES`
+  en prod verrouille l'URL — le paramètre `?jauges=` est alors ignoré.
+- **`jauges-demo.php`** est un outil de test : son routeur PATH_INFO
+  n'exécute que `front/*.php` et ne sert en statique que `datas/`
+  (jamais de dotfile, `.git/` inclus) — peut être omis du déploiement.
 - **Sécurité** : un seul flux sortant (HTTPS vers `openagenda.com` +
   `leschampslibres.fr` pour les fontes, mises en cache) ; aucune clé
   exposée ; aucun port ni service supplémentaire.

@@ -65,7 +65,21 @@ define('REFRESH_MIN', 60);
 // purge du cache images : fichiers non retéléchargés depuis N jours
 // supprimés à chaque génération (0 = jamais purgé ; les URLs OA sont
 // versionnées → un fichier inutilisé reste pur inoccupé)
-define('CACHE_IMG_DAYS', 90);
+define('CACHE_IMG_DAYS', 30);
+
+// — Superviseur kiosk (front/kiosk.php) ————————————————————————————
+// page existante encapsulée (jauges). Si renseignée, le paramètre
+// ?jauges= de l'URL est IGNORÉ : l'iframe superviseur ne peut pas
+// être détournée vers une URL arbitraire. Vide = ?jauges= requis
+// (pratique en dev, à renseigner en prod).
+define('KIOSK_JAUGES', '');
+
+// — Contrôle d'accès ———————————————————————————————————————————————
+// si renseigné, GET gen.php?force=1 exige en plus &token=<valeur>
+// (le cron doit alors l'inclure dans l'URL). Sans effet sur la
+// régénération interne du player (sans force) ni sur le CLI
+// (php front/gen.php).
+define('GEN_TOKEN', '');
 
 // — Chemins (relatifs à la racine du projet) ——————————————————————
 define('DATA_DIR', __DIR__ . '/datas/nextevent');

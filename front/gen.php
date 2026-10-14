@@ -85,10 +85,22 @@ function gen_locked($force) {
 }
 
 @mkdir(DATA_DIR, 0777, true);
+$force = ($_GET['force'] ?? '') === '1' || PHP_SAPI === 'cli';
+// ?force=1 est joignable par n'importe qui : si GEN_TOKEN est
+// renseigné (config.php), le forçage HTTP exige &token=<GEN_TOKEN>.
+// hash_equals : comparaison à temps constant. La régénération
+// interne du player (gen.php sans force) et le CLI ne sont pas
+// concernés — sinon il faudrait embarquer le token côté kiosk.
+$denied = PHP_SAPI !== 'cli' && $force && GEN_TOKEN !== ''
+        && !hash_equals(GEN_TOKEN, (string)($_GET['token'] ?? ''));
 try {
-    $res = gen_locked(($_GET['force'] ?? '') === '1'
-                      || PHP_SAPI === 'cli');
-    http_response_code(200);
+    if ($denied) {
+        http_response_code(403);
+        $res = ['status' => 'error', 'error' => 'token requis'];
+    } else {
+        $res = gen_locked($force);
+        http_response_code(200);
+    }
 } catch (Throwable $e) {
     http_response_code(500);
     $res = ['status' => 'error', 'error' => $e->getMessage()];

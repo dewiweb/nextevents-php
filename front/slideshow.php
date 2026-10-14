@@ -12,6 +12,10 @@
  *           émet postMessage('nextevents:done') vers le parent —
  *           pensé pour être iframé dans jauges.php : la page mère
  *           alterne elle-même jauges ↔ groupe de diapos.
+ *         ?hold=1 → pose la 1re diapo dès le chargement puis attend
+ *           postMessage('nextevents:go') du parent pour démarrer —
+ *           permet de précharger l'iframe cachée pendant la phase
+ *           jauges : bascule instantanée, sans latence de chargement.
  * JSON  : ?manifest=<fmt> → {slides, delay, transition, tdur}
  */
 
@@ -77,6 +81,17 @@ const OFFSET = isNaN(qOffset) ? 0 : qOffset;
 const RESUME = isNaN(qOffset);   // pas d'offset explicite → localStorage
 const LIMIT = parseInt(P.get('limit') || '0');   // 0 = tout
 const ONCE = P.get('once') === '1';
+// hold : la page mère précharge l'iframe pendant la phase jauges ;
+// la 1re diapo est posée au chargement mais les délais ne démarrent
+// qu'au postMessage('nextevents:go') → la bascule est immédiate
+// (pas de latence de chargement du player ni de la diapo base64)
+const HOLD = P.get('hold') === '1';
+let wantGo = false, started = false;
+window.addEventListener('message', e => {
+  if (e.data !== 'nextevents:go') return;
+  wantGo = true;   // mémorisé si le manifest n'est pas encore arrivé
+  if (!started && idx >= 0) { started = true; arm(); }
+});
 
 let slides = [], idx = -1, cur = null, timer = null;
 let delay = 8, trans = 'fade', dur = 1500, done = false;
@@ -216,11 +231,16 @@ async function poll() {
     slides = list;
     document.getElementById('empty').style.display =
       slides.length ? 'none' : 'grid';
-    if (changed && (!slides.length || !slides.includes(slides[idx]))) {
+    if (changed && (!slides.length || !slides.includes(slides[idx])))
       idx = -1;  // diapo courante supprimée : repartir proprement
-      next();
+    if (idx < 0 && slides.length) {
+      if (HOLD && !wantGo) {
+        idx = 0; show(slides[0]);   // posée, en attente du 'go'
+      } else {
+        if (wantGo) started = true;
+        next();
+      }
     }
-    if (idx < 0 && slides.length) next();
   } catch (e) { /* serveur coupé : on réessaiera */ }
 }
 

@@ -20,14 +20,20 @@
 $pi = $_SERVER['PATH_INFO'] ?? '';
 if ($pi !== '' && $pi !== '/') {
     $root = realpath(dirname(__DIR__));
+    $data = realpath($root . '/datas');
     $f = realpath($root . $pi);                  // /front/x.php, /datas/…
     if ((!$f || !is_file($f)) && is_file(__DIR__ . $pi))
         $f = realpath(__DIR__ . $pi);            // /slideshow.php, /gen.php
+    // garde-fous : pas de segment caché (/.git, /.., /.gen.lock),
+    // .php uniquement dans front/, statique uniquement sous datas/
+    // (la sortie générée — jamais le code, la config ou le dépôt)
     if ($f && is_file($f) && strpos($f, $root) === 0
-        && $f !== realpath(__FILE__)) {
+        && $f !== realpath(__FILE__)
+        && !preg_match('#(^|/)\.[^/]*#', $pi)) {
         if (substr($f, -4) === '.php' && dirname($f) === __DIR__) {
             require $f;                          // front/*.php → exécuté
-        } elseif (substr($f, -4) !== '.php') {
+        } elseif (substr($f, -4) !== '.php'
+                  && $data && strpos($f, $data . '/') === 0) {
             $mime = ['html'=>'text/html','css'=>'text/css',
                 'js'=>'text/javascript','json'=>'application/json',
                 'png'=>'image/png','jpg'=>'image/jpeg','svg'=>'image/svg+xml',
@@ -63,11 +69,11 @@ $jauges = [
 // URL absolue : une URL relative ('slideshow.php') casserait si la
 // page est appelée avec un slash final (/front/jauges-demo.php/ →
 // l'iframe rechargerait CETTE page au lieu du player)
+// hold=1 : le player pose sa 1re diapo puis attend 'nextevents:go' —
+// l'iframe est préchargée pendant la phase jauges, bascule instantanée
 $src = dirname($_SERVER['SCRIPT_NAME'])
      . "/slideshow.php?fmt=" . rawurlencode($fmt)
-     . "&limit=$limit&once=1&delay=$delay";
-// NB : pas de src sur l'iframe au chargement — sinon le player
-// consomme le premier groupe de diapos en restant invisible
+     . "&limit=$limit&once=1&hold=1&delay=$delay";
 ?>
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8">
@@ -110,38 +116,46 @@ const nx = document.getElementById('nx');
 const jauges = document.getElementById('jauges');
 let remain = <?= (int)$every ?>, onDiapos = false;
 
+// phase jauges : précharger le groupe suivant — MÊME url, le player
+// reprend seul via localStorage ; hold=1 → il pose sa 1re diapo puis
+// attend le 'go' (rendu fait pendant que l'iframe est cachée)
+function preload() { nx.src = SRC; }
+
 // compte à rebours jusqu'au prochain passage diapos
 setInterval(() => {
   if (!onDiapos)
     document.getElementById('cd').textContent = --remain;
 }, 1000);
 
-// cycle : jauges EVERY ms → 2 diapos → retour jauges
+// cycle : jauges EVERY ms → diapos → retour jauges.
+// Bascule instantanée : la 1re diapo est déjà rendue, le 'go'
+// démarre les délais — pas de latence de chargement à l'écran.
 setInterval(() => {
   onDiapos = true;
-  nx.src = SRC;                 // MÊME url → groupe suivant mémorisé
-  // l'iframe reste cachée pendant le rechargement et les jauges
-  // restent visibles : sinon on réaffiche une frame le dernier
-  // document (dernière diapo du groupe précédent) puis du noir
+  jauges.style.display = 'none';
+  nx.style.display = 'block';   // pas '' — le CSS pose display:none
+  nx.contentWindow.postMessage('nextevents:go', '*');
   document.getElementById('mode').textContent = 'diapos';
   remain = <?= (int)$every ?>;
   document.getElementById('cd').textContent = remain;
 }, EVERY);
 
-// player chargé → bascule jauges → diapos
-nx.addEventListener('load', () => {
-  if (!onDiapos) return;
-  jauges.style.display = 'none';
-  nx.style.display = 'block';   // pas '' — le CSS pose display:none
-});
-
-// le slideshow a fini ses diapos : retour aux jauges
+// le slideshow a fini ses diapos : retour aux jauges + préchargement
+// du groupe suivant
 window.addEventListener('message', e => {
   if (e.data !== 'nextevents:done') return;
   onDiapos = false;
   nx.style.display = 'none';
   jauges.style.display = '';
   document.getElementById('mode').textContent = 'jauges';
+  preload();
 });
+
+// player fini de charger après la bascule (boot, réseau lent) :
+// on relance le 'go' — le player mémorise aussi un go arrivé tôt
+nx.addEventListener('load', () => {
+  if (onDiapos) nx.contentWindow.postMessage('nextevents:go', '*');
+});
+preload();
 </script>
 </body></html>
