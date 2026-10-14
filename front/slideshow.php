@@ -40,6 +40,9 @@ if (isset($_GET['manifest'])) {
             array_map('trim', file($mf))));
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
+    // lisible en fetch() depuis une page hébergée sur un autre vhost
+    // (la page jauges peut suivre le manifest directement en JS)
+    header('Access-Control-Allow-Origin: *');
     echo json_encode([
         'slides' => $slides, 'delay' => SLIDE_DELAY,
         'transition' => SLIDE_TRANSITION, 'tdur' => SLIDE_TRANS_MS,
