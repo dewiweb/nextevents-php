@@ -35,6 +35,8 @@ conservant l'organisation relative (`slideshow.php` référence
 ```
 config.php             ← les réglages, à éditer
 front/slideshow.php    ← la page à afficher sur le kiosk
+front/kiosk.php        ← superviseur si le kiosk doit alterner
+                         avec une page existante (voir plus bas)
 front/gen.php          ← la génération (appelée toute seule)
 inc/  assets/          ← code et gabarits, ne pas toucher
 datas/nextevent/       ← sortie, doit être INSCRIPTIBLE par PHP
@@ -56,6 +58,11 @@ https://<serveur>/front/slideshow.php?fmt=portrait-screen
 ```
 
 → les diapos défilent en plein écran. C'est fini.
+
+Pour alterner avec une page existante (jauges…) sur un kiosk qui
+n'accepte qu'une URL : voir **« Intégrer dans la page des jauges »**
+ci-dessous — option A (`kiosk.php`, sans toucher au code existant)
+ou option B (iframe dans la page existante).
 
 ### Vérifier avant de déployer
 
