@@ -14,7 +14,9 @@ dossier inscriptible.
 ```
 OpenAgenda ──> gen.php ──> datas/nextevent/<fmt>/html/slide-*.html
                                  + manifest.txt
-kiosk Chrome ─> slideshow.php ─> affiche les diapos en fondu
+kiosk Chrome ─> kiosk.php ─> alterne page existante (jauges)
+                │               et diapos en fondu (option A)
+                └─ ou ─> slideshow.php ─> diapos seules
 ```
 
 - `front/gen.php` récupère les événements OpenAgenda (export public,
@@ -72,6 +74,7 @@ code existant) est recommandée.
 | `mbstring` | quasi toujours présent |
 | `curl` ou `allow_url_fopen` | requêtes HTTPS vers openagenda.com |
 | `datas/` sous la racine web | ouvrir `/datas/nextevent/<fmt>/html/<fichier>.html` dans le navigateur : la diapo doit s'afficher |
+| la page jauges accepte l'iframe (option A) | `curl -sI <url-jauges> \| grep -iE 'x-frame\|frame-ancestors'` → rien ; et même schéma `http`/`https` que le superviseur |
 
 ## Alterner avec une page existante (jauges)
 
@@ -81,10 +84,11 @@ Deux façons d'y arriver :
 
 - **Option A — recommandée** : `kiosk.php` supervise l'alternance —
   la page existante est encapsulée dans une iframe, **aucune
-  modification de son code**. C'est cette page qui pilote tout.
+  modification du code existant**. C'est le superviseur qui pilote
+  tout.
 - **Option B — alternative** : la page existante garde la main et
-  intègre le slideshow dans une iframe — pour ceux qui veulent
-  piloter l'alternance depuis leur propre code.
+  intègre le slideshow dans une iframe — pour piloter l'alternance
+  depuis le code existant.
 
 ### Option A — superviseur `kiosk.php` (recommandée)
 
@@ -120,7 +124,8 @@ envoie `nextevents:go` au moment de la bascule — la première diapo
 est déjà rendue. Elle se fait en **fondu enchaîné** (durée `tdur`) :
 les deux iframes étant empilées plein écran, le wrapper joue sur
 l'opacité de l'iframe diapos par-dessus les jauges — la page jauges
-n'est jamais masquée, son refresh interne continue en dessous.
+n'est jamais masquée, le refresh interne du code existant continue
+en dessous.
 
 Seule exigence : la page jauges doit accepter d'être chargée en
 iframe (pas de `X-Frame-Options: DENY` ni `frame-ancestors` trop
@@ -217,7 +222,7 @@ function showDiapos() {
   nx.style.display = 'block';
   nx.contentWindow.postMessage('nextevents:go', '*');
 }
-setInterval(showDiapos, 60000);   // ou votre propre déclencheur
+setInterval(showDiapos, 60000);   // ou le déclencheur existant
 
 // player fini de charger après la bascule (boot, réseau lent) :
 // on relance le 'go' — le player mémorise aussi un go arrivé tôt
@@ -327,8 +332,8 @@ d'interface. Les plus utiles :
 | « repart toujours sur les 2 premières diapos » | `offset=` présent dans l'URL | le retirer — la reprise est automatique |
 | | kiosk qui purge les données de site | autoriser `localStorage` pour le domaine |
 | « aucune diapo » à l'écran | `gen.php` jamais lancé ou en erreur | appeler `gen.php?force=1`, lire `error` |
-| **latence / écran noir à la bascule** jauges → diapos | iframe chargée au moment de la bascule (player + diapo base64 à télécharger) | `hold=1` + précharger l'iframe pendant la phase jauges + envoyer `postMessage('nextevents:go')` à la bascule (exemple ci-dessus) |
-| la **dernière diapo du groupe précédent flashe** avant les nouvelles | iframe réaffichée avant la fin de son rechargement | réassigner `src` en laissant l'iframe **cachée** et ne la montrer qu'à l'événement `load` (voir l'exemple ci-dessus) |
+| **latence / écran noir à la bascule** jauges → diapos (intégration option B) | iframe chargée au moment de la bascule (player + diapo base64 à télécharger) | `hold=1` + précharger l'iframe pendant la phase jauges + envoyer `postMessage('nextevents:go')` à la bascule (exemple ci-dessus) — l'option A (`kiosk.php`) le fait déjà |
+| la **dernière diapo du groupe précédent flashe** avant les nouvelles (option B) | iframe réaffichée avant la fin de son rechargement | réassigner `src` en laissant l'iframe **cachée** et ne la montrer qu'à l'événement `load` (voir l'exemple ci-dessus) |
 | flash « diapo portrait → paysage » au début d'un passage | ancienne version du player | `git pull` — depuis le fix, chaque diapo est masquée jusqu'à sa mise à l'échelle (`fit()`) |
 | | `datas/` hors racine web | ouvrir un `slide-*.html` directement pour vérifier |
 | `gen.php` renvoie `error` | OpenAgenda injoignable / pas de sortie HTTPS | vérifier `curl`/`allow_url_fopen` et le firewall |

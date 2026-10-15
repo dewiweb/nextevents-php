@@ -4,7 +4,8 @@
  * kiosk qui ne sait afficher qu'UNE url au démarrage.
  *
  * Au lieu d'intégrer le slideshow DANS la page jauges (nécessite de
- * modifier le code existant + son mécanisme de rafraîchissement peut
+ * modifier le code existant + le mécanisme de rafraîchissement de la
+ * page encapsulée peut
  * tuer l'iframe), c'est CETTE page qui encapsule la page jauges dans
  * une iframe jamais déchargée — le rafraîchissement interne du code
  * existant (reload, AJAX, websocket…) tourne en tâche de fond, les
