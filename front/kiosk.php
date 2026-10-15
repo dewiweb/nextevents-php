@@ -77,8 +77,9 @@ $mft = dirname($_SERVER['SCRIPT_NAME']) . '/slideshow.php'
 <html lang="fr"><head><meta charset="utf-8"><title>Kiosk</title>
 <style>
 html,body{margin:0;height:100%;background:#000;overflow:hidden}
-iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
-#nx{display:none}
+iframe{position:fixed;inset:0;width:100%;height:100%;border:0;
+ transition:opacity <?= $tdur ?>ms ease}
+#nx{display:none;opacity:0}
 </style></head><body>
 <iframe id="jauges"></iframe>
 <iframe id="nx"></iframe>
@@ -111,12 +112,18 @@ function go() {
    postMessage MSG émis par la page encapsulée (pagination variable
    côté existant : il ajoute parent.postMessage(MSG,'*') en fin
    d'affichage ; EVERY fait alors office de borne max). */
+/* Les deux iframes sont empilées plein écran : la bascule est un
+   fondu d'opacité de l'iframe diapos par-dessus les jauges — la page
+   jauges n'est JAMAIS masquée (elle continue de vivre en dessous, son
+   refresh interne tourne), on ne coupe rien. */
 function startJauges() {
   onDiapos = false;
   clearTimeout(watchdog); watchdog = null;
-  nx.style.display = 'none';
-  jauges.style.display = '';
-  nx.src = SRC;   // préchargement du groupe suivant (même URL → reload)
+  nx.style.opacity = '0';                    // fondu de sortie
+  setTimeout(() => {
+    nx.style.display = 'none';
+    nx.src = SRC;   // préchargement du groupe suivant (même URL → reload)
+  }, TDUR_MS);
   clearTimeout(jaugesTimer);
   jaugesTimer = setTimeout(switchToDiapos, EVERY);
 }
@@ -134,8 +141,8 @@ async function switchToDiapos() {
     const n = LIMIT || m.slides.length;
     watchdog = setTimeout(startJauges, n * (DELAY_MS + TDUR_MS) + 10000);
     onDiapos = true;
-    jauges.style.display = 'none';
     nx.style.display = 'block';
+    requestAnimationFrame(() => { nx.style.opacity = '1'; });
     go();   // réveille le player préchargé — diapo déjà rendue
   } catch (e) {
     startJauges();   // serveur injoignable : on retentera

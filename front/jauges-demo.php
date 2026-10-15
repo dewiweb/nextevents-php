@@ -1,15 +1,20 @@
 <?php
 /**
- * front/jauges-demo.php — fausse page de jauges pour tester
- * l'alternance « jauges ↔ diapos » en local, avant intégration dans
- * la vraie page du SI. Reproduit le motif du README : la page mère
- * montre ses jauges, puis l'iframe du slideshow pendant `limit`
- * diapos, puis revient.
+ * front/jauges-demo.php — fausse page de jauges « pure », pour tester
+ * le scénario A : front/kiosk.php encapsule CETTE page dans une
+ * iframe jamais déchargée et y superpose les diapos par cycles.
+ * Ici aucun code diapos — comme la vraie page jauges du SI.
  *
- * Query : ?every=10 (secondes de jauges entre deux passages diapos)
- *         ?limit=2  (diapos par passage)
- *         ?delay=2  (durée d'affichage par diapo)
- *         ?fmt=landscape
+ * Démo : /front/kiosk.php?jauges=/front/jauges-demo.php&every=15&limit=3&delay=3
+ *        /front/kiosk.php?jauges=/front/jauges-demo.php?signal=20&msg=jauges:done
+ *
+ * Query : ?refresh=10  simule la mise à jour interne de la page
+ *           (horloge + chiffres qui bougent) — montre que l'iframe
+ *           encapsulée continue de vivre sous le superviseur
+ *         ?signal=20   émet parent.postMessage('jauges:done','*')
+ *           toutes les N secondes — déclencheur adaptatif du kiosk
+ *           (paramètre msg=) : la bascule part à la fin de SON cycle
+ *           plutôt qu'au timer fixe
  */
 
 // — mini-routeur PATH_INFO : si la page est appelée avec un chemin
@@ -53,10 +58,8 @@ if ($pi !== '' && $pi !== '/') {
     }
 }
 
-$every = max(4, (float)($_GET['every'] ?? 10));
-$limit = max(1, (int)($_GET['limit'] ?? 2));
-$delay = max(1, (int)($_GET['delay'] ?? 2));
-$fmt   = $_GET['fmt'] ?? 'landscape';
+$refresh = max(2, (int)($_GET['refresh'] ?? 10));
+$signal  = max(0, (int)($_GET['signal'] ?? 0));
 
 // jauges fictives : libellé, occupation, capacité — données bidons,
 // juste de quoi voir qu'on est sur la vue jauges
@@ -66,18 +69,10 @@ $jauges = [
     ['Bibliothèque',  96, 150],
     ['Café',          23,  80],
 ];
-// URL absolue : une URL relative ('slideshow.php') casserait si la
-// page est appelée avec un slash final (/front/jauges-demo.php/ →
-// l'iframe rechargerait CETTE page au lieu du player)
-// hold=1 : le player pose sa 1re diapo puis attend 'nextevents:go' —
-// l'iframe est préchargée pendant la phase jauges, bascule instantanée
-$src = dirname($_SERVER['SCRIPT_NAME'])
-     . "/slideshow.php?fmt=" . rawurlencode($fmt)
-     . "&limit=$limit&once=1&hold=1&delay=$delay";
 ?>
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8">
-<title>Jauges — démo alternance</title>
+<title>Jauges — démo encapsulée</title>
 <style>
 html,body{margin:0;height:100%;background:#111;color:#efeae6;
  font-family:sans-serif}
@@ -89,73 +84,61 @@ html,body{margin:0;height:100%;background:#111;color:#efeae6;
  margin-top:8px;overflow:hidden}
 .jauge .fill{height:100%;border-radius:13px}
 .pct{font-variant-numeric:tabular-nums;color:#9daa9f}
-#nx{position:fixed;inset:0;width:100%;height:100%;border:0;
- display:none;background:#000}
 #badge{position:fixed;top:10px;right:14px;font-size:13px;
  color:#666;z-index:9}
+#uptime{position:fixed;bottom:10px;right:14px;font-size:13px;
+ color:#555}
 </style></head><body>
 <div id="jauges">
   <h1>Fréquentation en direct</h1>
-<?php foreach ($jauges as [$nom, $occ, $cap]):
+<?php foreach ($jauges as $i => [$nom, $occ, $cap]):
     $pct = min(100, round($occ / $cap * 100));
     $col = $pct > 80 ? '#c99483' : ($pct > 50 ? '#f6e3bb' : '#9daa9f'); ?>
   <div class="jauge"><?= htmlspecialchars($nom) ?>
-    <span class="pct"><?= $occ ?>/<?= $cap ?></span>
-    <div class="bar"><div class="fill" style="width:<?= $pct ?>%;
-      background:<?= $col ?>"></div></div>
+    <span class="pct"><span id="occ<?= $i ?>"><?= $occ ?></span>/<?= $cap ?></span>
+    <div class="bar"><div class="fill" id="fill<?= $i ?>"
+      style="width:<?= $pct ?>%;background:<?= $col ?>"></div></div>
   </div>
 <?php endforeach; ?>
 </div>
-<iframe id="nx"></iframe>
-<div id="badge"><span id="mode">jauges</span> — diapos dans
- <span id="cd"><?= (int)$every ?></span> s</div>
+<div id="badge">refresh simulé dans <span id="cd"><?= $refresh ?></span> s</div>
+<div id="uptime">page chargée il y a <span id="up">0</span> s
+ — jamais rechargée</div>
 <script>
-const EVERY = <?= $every * 1000 ?>;
-const SRC = <?= json_encode($src) ?>;
-const nx = document.getElementById('nx');
-const jauges = document.getElementById('jauges');
-let remain = <?= (int)$every ?>, onDiapos = false;
+const REFRESH = <?= $refresh * 1000 ?>;
+const SIGNAL = <?= $signal * 1000 ?>;
+const t0 = Date.now();
+let remain = <?= $refresh ?>;
+const caps = <?= json_encode(array_column($jauges, 2)) ?>;
+const cols = p => p > 80 ? '#c99483' : (p > 50 ? '#f6e3bb' : '#9daa9f');
 
-// phase jauges : précharger le groupe suivant — MÊME url, le player
-// reprend seul via localStorage ; hold=1 → il pose sa 1re diapo puis
-// attend le 'go' (rendu fait pendant que l'iframe est cachée)
-function preload() { nx.src = SRC; }
-
-// compte à rebours jusqu'au prochain passage diapos
+// « la page vit » : horloge de présence — si l'iframe était rechargée
+// par le superviseur à chaque cycle, ce compteur repartirait à 0
 setInterval(() => {
-  if (!onDiapos)
-    document.getElementById('cd').textContent = --remain;
+  document.getElementById('up').textContent =
+    Math.round((Date.now() - t0) / 1000);
 }, 1000);
 
-// cycle : jauges EVERY ms → diapos → retour jauges.
-// Bascule instantanée : la 1re diapo est déjà rendue, le 'go'
-// démarre les délais — pas de latence de chargement à l'écran.
+// refresh interne simulé (la vraie page fait son AJAX/reload pareil,
+// en tâche de fond sous le superviseur) : chiffres + barres bougent
 setInterval(() => {
-  onDiapos = true;
-  jauges.style.display = 'none';
-  nx.style.display = 'block';   // pas '' — le CSS pose display:none
-  nx.contentWindow.postMessage('nextevents:go', '*');
-  document.getElementById('mode').textContent = 'diapos';
-  remain = <?= (int)$every ?>;
-  document.getElementById('cd').textContent = remain;
-}, EVERY);
+  document.getElementById('cd').textContent = --remain;
+  if (remain > 0) return;
+  remain = <?= $refresh ?>;
+  caps.forEach((cap, i) => {
+    const occ = Math.round(cap * (0.15 + Math.random() * 0.7));
+    document.getElementById('occ' + i).textContent = occ;
+    const f = document.getElementById('fill' + i);
+    f.style.width = Math.round(occ / cap * 100) + '%';
+    f.style.background = cols(occ / cap * 100);
+  });
+}, 1000);
 
-// le slideshow a fini ses diapos : retour aux jauges + préchargement
-// du groupe suivant
-window.addEventListener('message', e => {
-  if (e.data !== 'nextevents:done') return;
-  onDiapos = false;
-  nx.style.display = 'none';
-  jauges.style.display = '';
-  document.getElementById('mode').textContent = 'jauges';
-  preload();
-});
-
-// player fini de charger après la bascule (boot, réseau lent) :
-// on relance le 'go' — le player mémorise aussi un go arrivé tôt
-nx.addEventListener('load', () => {
-  if (onDiapos) nx.contentWindow.postMessage('nextevents:go', '*');
-});
-preload();
+// déclencheur adaptatif : si ?signal=N, la page annonce la fin de
+// SON cycle au superviseur (kiosk.php?msg=jauges:done) plutôt que
+// d'attendre le timer fixe — reproduit une pagination variable
+if (SIGNAL) setInterval(() => {
+  try { parent.postMessage('jauges:done', '*'); } catch (e) {}
+}, SIGNAL);
 </script>
 </body></html>

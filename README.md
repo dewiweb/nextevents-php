@@ -106,7 +106,10 @@ https://<serveur>/front/kiosk.php?jauges=https://<jauges>/page.php&every=60&limi
 La bascule est **sans latence** : l'iframe diapos précharge le groupe
 suivant pendant la phase jauges (`hold=1` du player) et le wrapper
 envoie `nextevents:go` au moment de la bascule — la première diapo
-est déjà rendue.
+est déjà rendue. Elle se fait en **fondu enchaîné** (durée `tdur`) :
+les deux iframes étant empilées plein écran, le wrapper joue sur
+l'opacité de l'iframe diapos par-dessus les jauges — la page jauges
+n'est jamais masquée, son refresh interne continue en dessous.
 
 Seule exigence : la page jauges doit accepter d'être chargée en
 iframe (pas de `X-Frame-Options: DENY` ni `frame-ancestors` trop
@@ -186,15 +189,30 @@ Comment ça marche :
   n'a rien à compter — elle recharge simplement la même URL, et peut
   couper l'iframe à n'importe quel moment.
 
-Une **page de démo** reproduit ce cycle avec de fausses jauges :
-`front/jauges-demo.php` (paramètres `?every=&limit=&delay=&fmt=`) —
-pratique pour valider l'alternance en local avec `php -S` avant
-d'intégrer dans la vraie page. Elle gère aussi le `PATH_INFO` :
-si la page est appelée avec un slash final ou derrière un proxy
-qui préfixe toutes les requêtes du chemin du script
-(`/front/jauges-demo.php/front/slideshow.php`), le fichier demandé
-est quand même servi — l'iframe n'affiche jamais une copie de la
-page jauges à la place des diapos.
+Une **page de démo** joue le rôle des jauges pour tester l'option A
+en local avec `php -S` — `front/jauges-demo.php` est une page
+« jauges seules » (aucun code diapos), à encapsuler par `kiosk.php` :
+
+```
+/front/kiosk.php?jauges=/front/jauges-demo.php&every=15&limit=3&delay=3
+```
+
+Ses paramètres : `?refresh=10` simule la mise à jour interne des
+données (montre que l'iframe encapsulée n'est jamais déchargée — le
+compteur de présence en bas à droite ne repart pas à zéro) ;
+`?signal=20` émet `parent.postMessage('jauges:done','*')` toutes les
+N secondes — associé à `msg=jauges:done` côté `kiosk.php`, ça
+reproduit une page à pagination variable dont la fin de cycle
+déclenche la bascule :
+
+```
+/front/kiosk.php?jauges=/front/jauges-demo.php?signal=20&msg=jauges:done&every=60&limit=3&delay=3
+```
+
+La page démo gère aussi le `PATH_INFO` : si elle est appelée avec un
+slash final ou derrière un proxy qui préfixe les requêtes du chemin
+du script (`/front/jauges-demo.php/front/slideshow.php`), le fichier
+demandé est quand même servi.
 
 > ⚠️ **Ne pas mettre `offset` dans l'URL.** Sa présence désactive la
 > reprise automatique : avec `offset=0` fixe, le diaporama rejoue
