@@ -278,6 +278,23 @@ Comment ça marche :
 | `hold` | — | `hold=1` : 1re diapo posée au chargement, démarrage au `postMessage('nextevents:go')` de la page mère |
 | `manifest=<fmt>` | — | renvoie le JSON `{slides, delay, transition, tdur}` au lieu de la page |
 
+**URL ou `config.php` ?** Les réglages se répartissent en trois
+catégories — seules les deux premières sont à connaître :
+
+- **`config.php`** : ce que l'exploitant règle **une fois** —
+  `SLIDE_DELAY`, `SLIDE_TRANSITION`, `SLIDE_TRANS_MS`, `FORMATS`,
+  `KIOSK_JAUGES`, `GEN_TOKEN`… Les paramètres URL `delay`, `tdur`,
+  `transition`, `fmt` et `jauges` n'existent que pour **surcharger
+  ces défauts au test**.
+- **L'URL du kiosk** : les choix d'intégration **par écran** —
+  `every`, `limit`, `msg` (rythme d'alternance, taille des groupes,
+  déclencheur). Pas d'équivalent en config : deux kiosks peuvent
+  vouloir des rythmes différents sur la même installation.
+- **Protocole interne** — à ne pas régler à la main : `once`,
+  `hold`, `offset` (reprise automatique), `manifest` (endpoint JSON),
+  `force`/`token` (action de génération), `refresh`/`signal`
+  (paramètres de la page de démo).
+
 ## Réglages (`config.php`)
 
 Tout se règle dans `config.php` (constantes PHP commentées) — pas
