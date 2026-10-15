@@ -1,8 +1,9 @@
 <?php
 /**
- * Rendu des diapos — port de nextevents/slide.py + media.py.
- * Produit des HTML autonomes (fontes + image en base64) : pas de PNG,
- * le navigateur du kiosk fait le rendu.
+ * Rendu des diapos — port des modules slide.py / media.py de
+ * nextevents-desktop (l'app de bureau dont ce projet est le port
+ * PHP — cf. README). Produit des HTML autonomes (fontes + image en
+ * base64) : pas de PNG, le navigateur du kiosk fait le rendu.
  */
 
 require_once __DIR__ . '/http.php';
@@ -26,7 +27,7 @@ const SPEC_ICONS = [
 const SPEC_ORDER = ['Date', 'Durée', 'Lieu', 'Tarif', 'Public',
                     'Accessibilité'];
 
-// paths SVG des icônes — recopiés de slide.py
+// paths SVG des icônes — recopiés de l'app de bureau
 const ICONS = [
     'calendar' => 'M8 5.75c-.41 0-.75-.34-.75-.75V2c0-.41.34-.75.75-.75s.75.34.75.75v3c0 .41-.34.75-.75.75Zm8 0c-.41 0-.75-.34-.75-.75V2c0-.41.34-.75.75-.75s.75.34.75.75v3c0 .41-.34.75-.75.75Zm4.5 4.09h-17c-.41 0-.75-.34-.75-.75s.34-.75.75-.75h17c.41 0 .75.34.75.75s-.34.75-.75.75ZM16 22.75H8c-3.65 0-5.75-2.1-5.75-5.75V8.5c0-3.65 2.1-5.75 5.75-5.75h8c3.65 0 5.75 2.1 5.75 5.75V17c0 3.65-2.1 5.75-5.75 5.75ZM8 4.25c-2.86 0-4.25 1.39-4.25 4.25V17c0 2.86 1.39 4.25 4.25 4.25h8c2.86 0 4.25-1.39 4.25-4.25V8.5c0-2.86-1.39-4.25-4.25-4.25H8Z',
     'pin' => 'M12 14.17c-2.13 0-3.87-1.73-3.87-3.87S9.87 6.44 12 6.44s3.87 1.73 3.87 3.87-1.74 3.86-3.87 3.86Zm0-6.23c-1.3 0-2.37 1.06-2.37 2.37s1.06 2.37 2.37 2.37 2.37-1.06 2.37-2.37S13.3 7.94 12 7.94ZM12 22.76a5.97 5.97 0 0 1-4.13-1.67c-2.95-2.84-6.21-7.37-4.98-12.76C4 3.44 8.27 1.25 12 1.25h.01c3.73 0 8 2.19 9.11 7.09 1.22 5.39-2.04 9.91-4.99 12.75A5.97 5.97 0 0 1 12 22.76Zm0-20.01c-2.91 0-6.65 1.55-7.64 5.91C3.28 13.37 6.24 17.43 8.92 20a4.426 4.426 0 0 0 6.17 0c2.67-2.57 5.63-6.63 4.57-11.34-1-4.36-4.75-5.91-7.66-5.91Z',
@@ -183,7 +184,8 @@ function slide_html($ev, $fonts, $orientation = 'landscape') {
             . '</span></div>';
 
     // taille du titre adaptée à sa longueur — les seuils sont
-    // calibrés sur les métriques de chaque gabarit (cf. slide.py)
+    // calibrés sur les métriques de chaque gabarit (mêmes seuils que
+    // dans l'app de bureau)
     $n = mb_strlen($ev['title']);
     if ($portrait)
         $h1 = $orientation === 'portrait-screen'

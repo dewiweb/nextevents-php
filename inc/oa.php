@@ -1,6 +1,7 @@
 <?php
 /**
- * Source OpenAgenda — port de nextevents/oa.py.
+ * Source OpenAgenda — port du module oa.py de nextevents-desktop
+ * (l'app de bureau dont ce projet est le port PHP — cf. README).
  *
  * Chaîne de repli :
  *   1. API v2 officielle (si OA_API_KEY renseignée)
@@ -36,7 +37,8 @@ const ACCESS_KEYWORDS = [
 
 const PUBLIC_LABEL = ['Tous publics' => 'Tout public'];
 
-// mentions d'accessibilité dans le texte libre (port _ACCESS_PATTERNS)
+// mentions d'accessibilité détectées dans le texte libre
+// (expressions reprenant celles de l'app de bureau)
 const ACCESS_PATTERNS = [
     ['#interpr[ée]t\w*\s+en\s+LSF|langue des signes#i', 'Interprétation en LSF'],
     ['#audiodescri\w*|audio-description#i', 'Audiodescription'],

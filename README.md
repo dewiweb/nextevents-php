@@ -114,8 +114,9 @@ n'est jamais masquée, son refresh interne continue en dessous.
 Seule exigence : la page jauges doit accepter d'être chargée en
 iframe (pas de `X-Frame-Options: DENY` ni `frame-ancestors` trop
 strict sur le vhost qui la sert —
-`curl -sI <url> | grep -iE 'x-frame|security'` pour vérifier). Si aucune diapo n'est générée ou si le player ne rend
-pas la main, le wrapper reste/revient sur les jauges — jamais bloqué.
+`curl -sI <url> | grep -iE 'x-frame|security'` pour vérifier). Si
+aucune diapo n'est générée ou si le player ne rend pas la main, le
+wrapper reste ou revient sur les jauges — jamais bloqué.
 
 ### Option B — intégrer le slideshow dans la page existante
 

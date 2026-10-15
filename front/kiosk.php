@@ -7,9 +7,9 @@
  * modifier le code existant + son mécanisme de rafraîchissement peut
  * tuer l'iframe), c'est CETTE page qui encapsule la page jauges dans
  * une iframe jamais déchargée — le rafraîchissement interne du code
- * existant (reload, AJAX, websocket…) tourne en tâche de fond, données toujours
- * fraîches. Les diapos sont superposées par cycles, pilotés par
- * le postMessage('nextevents:done') du player.
+ * existant (reload, AJAX, websocket…) tourne en tâche de fond, les
+ * données restent toujours fraîches. Les diapos sont superposées par
+ * cycles, pilotés par le postMessage('nextevents:done') du player.
  *
  * Query : ?jauges=<url>   page à encapsuler — ou constante
  *           KIOSK_JAUGES (config.php), qui a priorité
