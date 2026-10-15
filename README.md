@@ -60,9 +60,9 @@ https://<serveur>/front/slideshow.php?fmt=portrait-screen
 → les diapos défilent en plein écran. C'est fini.
 
 Pour alterner avec une page existante (jauges…) sur un kiosk qui
-n'accepte qu'une URL : voir **« Intégrer dans la page des jauges »**
-ci-dessous — option A (`kiosk.php`, sans toucher au code existant)
-ou option B (iframe dans la page existante).
+n'accepte qu'une URL : voir **« Alterner avec une page existante »**
+ci-dessous — l'option A (`kiosk.php`, superviseur, sans toucher au
+code existant) est recommandée.
 
 ### Vérifier avant de déployer
 
@@ -73,15 +73,24 @@ ou option B (iframe dans la page existante).
 | `curl` ou `allow_url_fopen` | requêtes HTTPS vers openagenda.com |
 | `datas/` sous la racine web | ouvrir `/datas/nextevent/<fmt>/html/<fichier>.html` dans le navigateur : la diapo doit s'afficher |
 
-## Intégrer dans la page des jauges
+## Alterner avec une page existante (jauges)
 
 Le scénario : `jauges → 2 diapos → jauges → 2 diapos suivantes → …`
 
-### Option A — sans toucher à la page existante : `kiosk.php`
+Deux façons d'y arriver :
 
-Si le kiosk affiche **une seule URL** au démarrage, le plus simple est
-de l'inverser : `front/kiosk.php` encapsule la page jauges existante
-dans une iframe jamais déchargée et y superpose les diapos par cycles.
+- **Option A — recommandée** : `kiosk.php` supervise l'alternance —
+  la page existante est encapsulée dans une iframe, **aucune
+  modification de son code**. C'est cette page qui pilote tout.
+- **Option B — alternative** : la page existante garde la main et
+  intègre le slideshow dans une iframe — pour ceux qui veulent
+  piloter l'alternance depuis leur propre code.
+
+### Option A — superviseur `kiosk.php` (recommandée)
+
+Le kiosk affiche **une seule URL** au démarrage : on la pointe sur
+`front/kiosk.php`, qui encapsule la page jauges existante dans une
+iframe jamais déchargée et y superpose les diapos par cycles.
 **Aucune modification du code existant** — le mécanisme de
 rafraîchissement de la page jauges (reload, AJAX…) tourne en tâche
 de fond et les données restent fraîches :
@@ -118,10 +127,38 @@ strict sur le vhost qui la sert —
 aucune diapo n'est générée ou si le player ne rend pas la main, le
 wrapper reste ou revient sur les jauges — jamais bloqué.
 
-### Option B — intégrer le slideshow dans la page existante
+Une **page de démo** joue le rôle des jauges pour tester ce scénario
+en local avec `php -S` — `front/jauges-demo.php` est une page
+« jauges seules » (aucun code diapos), à encapsuler par `kiosk.php` :
 
-Exemple **complet** à adapter — la page jauges décide quand montrer
-les diapos, le slideshow la prévient quand il a fini :
+```
+/front/kiosk.php?jauges=/front/jauges-demo.php&every=15&limit=3&delay=3
+```
+
+Ses paramètres : `?refresh=10` simule la mise à jour interne des
+données (montre que l'iframe encapsulée n'est jamais déchargée — le
+compteur de présence en bas à droite ne repart pas à zéro) ;
+`?signal=20` émet `parent.postMessage('jauges:done','*')` toutes les
+N secondes — associé à `msg=jauges:done` côté `kiosk.php`, ça
+reproduit une page à pagination variable dont la fin de cycle
+déclenche la bascule :
+
+```
+/front/kiosk.php?jauges=/front/jauges-demo.php?signal=20&msg=jauges:done&every=60&limit=3&delay=3
+```
+
+La page démo gère aussi le `PATH_INFO` : si elle est appelée avec un
+slash final ou derrière un proxy qui préfixe les requêtes du chemin
+du script (`/front/jauges-demo.php/front/slideshow.php`), le fichier
+demandé est quand même servi.
+
+### Option B — la page existante garde la main (alternative)
+
+À choisir si l'on préfère piloter l'alternance depuis le code de la
+page jauges (ex. déclencheur métier propre à la page, ou l'URL du
+kiosk non modifiable). Exemple **complet** à adapter — la page jauges
+décide quand montrer les diapos, le slideshow la prévient quand il a
+fini :
 
 ```html
 <!-- dans jauges.php -->
@@ -189,31 +226,6 @@ Comment ça marche :
   **suivant**, et boucle au début après les dernières. La page mère
   n'a rien à compter — elle recharge simplement la même URL, et peut
   couper l'iframe à n'importe quel moment.
-
-Une **page de démo** joue le rôle des jauges pour tester l'option A
-en local avec `php -S` — `front/jauges-demo.php` est une page
-« jauges seules » (aucun code diapos), à encapsuler par `kiosk.php` :
-
-```
-/front/kiosk.php?jauges=/front/jauges-demo.php&every=15&limit=3&delay=3
-```
-
-Ses paramètres : `?refresh=10` simule la mise à jour interne des
-données (montre que l'iframe encapsulée n'est jamais déchargée — le
-compteur de présence en bas à droite ne repart pas à zéro) ;
-`?signal=20` émet `parent.postMessage('jauges:done','*')` toutes les
-N secondes — associé à `msg=jauges:done` côté `kiosk.php`, ça
-reproduit une page à pagination variable dont la fin de cycle
-déclenche la bascule :
-
-```
-/front/kiosk.php?jauges=/front/jauges-demo.php?signal=20&msg=jauges:done&every=60&limit=3&delay=3
-```
-
-La page démo gère aussi le `PATH_INFO` : si elle est appelée avec un
-slash final ou derrière un proxy qui préfixe les requêtes du chemin
-du script (`/front/jauges-demo.php/front/slideshow.php`), le fichier
-demandé est quand même servi.
 
 > ⚠️ **Ne pas mettre `offset` dans l'URL.** Sa présence désactive la
 > reprise automatique : avec `offset=0` fixe, le diaporama rejoue
