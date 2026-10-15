@@ -152,6 +152,34 @@ slash final ou derrière un proxy qui préfixe les requêtes du chemin
 du script (`/front/jauges-demo.php/front/slideshow.php`), le fichier
 demandé est quand même servi.
 
+**Mise en production (option A), pas à pas :**
+
+1. Dans `config.php`, fixer la page encapsulée et le token de
+   génération forcée :
+   ```php
+   define('KIOSK_JAUGES', 'https://<jauges>/page.php');
+   define('GEN_TOKEN', '<secret>');   // si un cron appelle ?force=1
+   ```
+2. Vérifier que la page jauges accepte l'iframe et partage le même
+   schéma que le superviseur (Chrome refuse une iframe `http` dans
+   une page `https`) :
+   ```
+   curl -sI https://<jauges>/page.php | grep -iE 'x-frame|frame-ancestors'
+   ```
+   → aucune interdiction ne doit apparaître.
+3. Pointer le navigateur du kiosk sur le superviseur :
+   ```
+   chrome --kiosk "https://<serveur>/front/kiosk.php?every=30&limit=3"
+   ```
+   (`jauges=` inutile — `KIOSK_JAUGES` fixe la cible ; ajouter
+   `&msg=jauges:done` seulement si la page encapsulée émet le signal.)
+4. Cron facultatif — les diapos se régénèrent déjà seules via
+   `REFRESH_MIN`, mais pour forcer l'heure :
+   ```
+   0 10 * * * curl -s "https://<serveur>/front/gen.php?force=1&token=<secret>" >/dev/null
+   ```
+   ou en CLI, sans token : `php /chemin/front/gen.php`.
+
 ### Option B — la page existante garde la main (alternative)
 
 À choisir si l'on préfère piloter l'alternance depuis le code de la
