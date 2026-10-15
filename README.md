@@ -118,6 +118,29 @@ https://<serveur>/front/kiosk.php?jauges=https://<jauges>/page.php&every=60&limi
 - `fmt`, `delay`, `tdur`, `transition` : passés au slideshow —
   par défaut les `SLIDE_*` de `config.php`
 
+Exemples, du plus simple au plus réglé :
+
+```
+# dev — cible passée en paramètre, tout le reste par défaut
+# (60 s de jauges, 2 diapos, SLIDE_* du config)
+/front/kiosk.php?jauges=https://<jauges>/page.php
+
+# prod — KIOSK_JAUGES fixé dans config.php : 30 s de jauges,
+# 3 diapos par passage
+/front/kiosk.php?every=30&limit=3
+
+# alternance pilotée par la page existante : la bascule part sur
+# son postMessage, 90 s = borne max si le message n'arrive jamais
+/front/kiosk.php?every=90&msg=jauges:done&limit=3
+
+# affichage réglé différemment des défauts config pour CE kiosk :
+# diapos 12 s, transition glissée de 800 ms
+/front/kiosk.php?every=30&limit=3&delay=12&transition=slide&tdur=800
+
+# tout le manifest à chaque passage, écran paysage
+/front/kiosk.php?every=30&limit=0&fmt=landscape
+```
+
 La bascule est **sans latence** : l'iframe diapos précharge le groupe
 suivant pendant la phase jauges (`hold=1` du player) et le wrapper
 envoie `nextevents:go` au moment de la bascule — la première diapo
