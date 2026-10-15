@@ -103,14 +103,16 @@ https://<serveur>/front/kiosk.php?jauges=https://<jauges>/page.php&every=60&limi
   `KIOSK_JAUGES` dans `config.php`, qui a **priorité** (recommandé en
   prod : l'URL du kiosk reste propre et l'iframe ne peut pas être
   détournée vers une URL arbitraire)
-- `every` : secondes de jauges entre deux passages (défaut 60)
+- `every` : secondes de jauges entre deux passages (défaut 60,
+  minimum 10)
 - `msg` : si posé (ex. `msg=jauges:done`), la bascule part dès que la
   page encapsulée émet `parent.postMessage('jauges:done','*')` —
   durée d'affichage **adaptative** (pagination variable côté
   existant). `every` devient alors la borne max en l'absence du
   message
 - `limit` : diapos par passage (défaut 2, `0` = tout le manifest)
-- `fmt`, `delay`, `tdur`, `transition` : passés au slideshow
+- `fmt`, `delay`, `tdur`, `transition` : passés au slideshow —
+  par défaut les `SLIDE_*` de `config.php`
 
 La bascule est **sans latence** : l'iframe diapos précharge le groupe
 suivant pendant la phase jauges (`hold=1` du player) et le wrapper

@@ -59,10 +59,12 @@ $every = max(10, (float)($_GET['every'] ?? 60));
 $limit = max(0, (int)($_GET['limit'] ?? 2));
 $fmt   = $_GET['fmt'] ?? FORMATS[0];
 $fmt   = in_array($fmt, FORMATS, true) ? $fmt : FORMATS[0];
-$delay = max(1, (int)($_GET['delay'] ?? 8));
-$tdur  = max(0, (int)($_GET['tdur'] ?? 1500));
-$trans = in_array($_GET['transition'] ?? '', ['fade', 'slide', 'none'],
-                  true) ? $_GET['transition'] : 'fade';
+// défauts du config.php (SLIDE_*) — la query surcharge si posée
+$delay = max(1, (int)($_GET['delay'] ?? SLIDE_DELAY));
+$tdur  = max(0, (int)($_GET['tdur'] ?? SLIDE_TRANS_MS));
+$trans = $_GET['transition'] ?? SLIDE_TRANSITION;
+$trans = in_array($trans, ['fade', 'slide', 'none'], true)
+       ? $trans : 'fade';
 
 $msg = (string)($_GET['msg'] ?? '');
 // chemin absolu depuis la racine web (un src relatif casserait si la
