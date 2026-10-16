@@ -48,14 +48,14 @@ define('SPECS_SHOW', '');
 // valeurs forcées : « Clé = valeur » par ligne
 define('SPEC_OVERRIDES', '');
 // items retirés d'une spec sans la masquer (séparés par virgules) —
-// ex. 'Dispositifs d'écoute amplifiée'
+// ex. 'Écoute amplifiée'
 define('SPEC_DROPS', '');
 // séries éditoriales : « keyword-oa = Libellé » par ligne
 define('SERIES_MAP', "grandstemoins = Les grands témoins\n");
 
 // — Diaporama ————————————————————————————————————————————————————
 define('SLIDE_DELAY', 8);        // secondes par diapo
-define('SLIDE_TRANSITION', 'fade'); // 'fade' ou 'slide'
+define('SLIDE_TRANSITION', 'fade'); // 'fade', 'slide' ou 'none'
 define('SLIDE_TRANS_MS', 1500);  // durée de transition
 
 // — Fraîcheur ————————————————————————————————————————————————————

@@ -5,8 +5,8 @@
  *
  * Au lieu d'intégrer le slideshow DANS la page jauges (nécessite de
  * modifier le code existant + le mécanisme de rafraîchissement de la
- * page encapsulée peut
- * tuer l'iframe), c'est CETTE page qui encapsule la page jauges dans
+ * page encapsulée peut tuer l'iframe), c'est CETTE page qui encapsule
+ * la page jauges dans
  * une iframe jamais déchargée — le rafraîchissement interne du code
  * existant (reload, AJAX, websocket…) tourne en tâche de fond, les
  * données restent toujours fraîches. Les diapos sont superposées par
@@ -83,12 +83,17 @@ $mft = dirname($_SERVER['SCRIPT_NAME']) . '/slideshow.php'
 <html lang="fr"><head><meta charset="utf-8"><title>Kiosk</title>
 <style>
 html,body{margin:0;height:100%;background:#000;overflow:hidden}
-iframe{position:fixed;inset:0;width:100%;height:100%;border:0;
- transition:opacity <?= $tdur ?>ms ease}
-#nx{display:none;opacity:0}
+iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
+#nx{display:none}
+/* voile noir au-dessus des deux iframes : chaque bascule est un fondu
+   AU NOIR (montée, échange dessous, redescente) — pointer-events:none
+   pour ne jamais bloquer les clics des pages encapsulées */
+#veil{position:fixed;inset:0;background:#000;opacity:1;z-index:10;
+ pointer-events:none;transition:opacity <?= $tdur ?>ms ease}
 </style></head><body>
 <iframe id="jauges"></iframe>
 <iframe id="nx"></iframe>
+<div id="veil"></div>
 <script>
 const EVERY = <?= $every * 1000 ?>;
 const LIMIT = <?= $limit ?>;
@@ -99,7 +104,14 @@ const MFT = <?= json_encode($mft) ?>;
 const MSG = <?= json_encode($msg) ?>;   // '' = bascule sur timer
 const jauges = document.getElementById('jauges');
 const nx = document.getElementById('nx');
-let onDiapos = false, watchdog = null, jaugesTimer = null;
+const veil = document.getElementById('veil');
+// nxDead : l'iframe diapos ne peut pas servir un groupe — player pas
+// encore chargé (boot) ou once=1 terminé ('ending'/'done' reçu) : une
+// bascule doit alors le RECHARGER plutôt que le réveiller.
+// nxReady : sa 1re diapo est réellement rendue ('nextevents:ready').
+// veilPeak : le voile noir a fini sa montée — le contenu peut changer.
+let onDiapos = false, nxDead = true, nxReady = false, veilPeak = false,
+    watchdog = null, jaugesTimer = null, fadeout = null;
 
 // src posé par JS et non dans le HTML : une iframe déclarée avec src
 // charge même si on prévoyait de la retarder
@@ -110,26 +122,49 @@ function go() {
   catch (e) {}
 }
 
+/* Toutes les bascules passent par le VOILE noir : montée (TDUR) →
+   échange du contenu dessous → redescente — un fondu au noir propre
+   dans les deux sens, jamais de fondu croisé jauges ↔ diapos.
+   La page jauges n'est JAMAIS masquée ni déchargée : elle continue de
+   vivre en dessous (refresh interne actif), on ne coupe rien. */
+
+// voile en haut + diapo rendue : on montre les diapos sous le noir
+// puis le voile redescend — l'apparition se fait depuis le noir
+function revealNx() {
+  veilPeak = false;
+  nx.style.display = 'block';
+  go();   // réveille le player (hold=1) — diapo déjà rendue
+  veil.style.opacity = '0';
+}
+
 /* Phase jauges : visible, et l'iframe diapos PRÉCHARGE le groupe
    suivant — hold=1 fait que le player pose sa 1re diapo puis attend
-   le postMessage 'nextevents:go' : la bascule est instantanée, sans
-   latence de chargement.
+   le postMessage 'nextevents:go' : la bascule est instantanée.
    Déclencheur de la bascule : timer EVERY ms — ou plus tôt le
    postMessage MSG émis par la page encapsulée (pagination variable
    côté existant : il ajoute parent.postMessage(MSG,'*') en fin
    d'affichage ; EVERY fait alors office de borne max). */
-/* Les deux iframes sont empilées plein écran : la bascule est un
-   fondu d'opacité de l'iframe diapos par-dessus les jauges — la page
-   jauges n'est JAMAIS masquée (elle continue de vivre en dessous, son
-   refresh interne tourne), on ne coupe rien. */
 function startJauges() {
   onDiapos = false;
   clearTimeout(watchdog); watchdog = null;
-  nx.style.opacity = '0';                    // fondu de sortie
-  setTimeout(() => {
-    nx.style.display = 'none';
-    nx.src = SRC;   // préchargement du groupe suivant (même URL → reload)
-  }, TDUR_MS);
+  clearTimeout(fadeout);
+  if (nx.style.display !== 'none') {
+    // retour depuis les diapos : fondu au noir, puis échange dessous
+    veil.style.opacity = '1';
+    fadeout = setTimeout(() => {
+      nx.style.display = 'none';
+      nx.src = SRC; nxReady = false;   // précharge le groupe suivant
+      veil.style.opacity = '0';        // jauges revient depuis le noir
+      veilPeak = false;
+    }, TDUR_MS);
+  } else {
+    // déjà sur les jauges (boot, manifest vide, retry) : pas de voile
+    // à remonter — on précharge juste le player si besoin, et on
+    // laisse le voile redescendre (il est levé au chargement initial)
+    if (nxDead) { nx.src = SRC; nxReady = false; }
+    veil.style.opacity = '0';
+    veilPeak = false;
+  }
   clearTimeout(jaugesTimer);
   jaugesTimer = setTimeout(switchToDiapos, EVERY);
 }
@@ -137,6 +172,8 @@ function startJauges() {
 async function switchToDiapos() {
   if (onDiapos) return;
   clearTimeout(jaugesTimer);
+  clearTimeout(fadeout);   // retour aux jauges encore en cours : le
+                           // voile est déjà levé — on enchaîne dessous
   // pas de diapo générée → on reste sur les jauges (gen.php a
   // peut-être échoué) : nouvel essai au prochain cycle
   try {
@@ -147,20 +184,59 @@ async function switchToDiapos() {
     const n = LIMIT || m.slides.length;
     watchdog = setTimeout(startJauges, n * (DELAY_MS + TDUR_MS) + 10000);
     onDiapos = true;
-    nx.style.display = 'block';
-    requestAnimationFrame(() => { nx.style.opacity = '1'; });
-    go();   // réveille le player préchargé — diapo déjà rendue
+    veil.style.opacity = '1';             // montée vers le noir
+    // player mort (groupe fini) ou pas encore chargé : on recharge
+    // PENDANT la montée — la diapo est généralement prête quand le
+    // voile arrive en haut ; sinon 'ready' décidera de la révélation
+    if (nxDead) { nx.src = SRC; nxReady = false; }
+    setTimeout(() => {
+      veilPeak = true;
+      // player chargé → sa diapo est posée (hold) : on peut révéler.
+      // Rechargement encore en vol : 'ready' (ou le filet du load)
+      // déclenchera revealNx dès la diapo effectivement rendue
+      if (!nxDead || nxReady) revealNx();
+    }, TDUR_MS);
   } catch (e) {
     startJauges();   // serveur injoignable : on retentera
   }
 }
 
-// player fini de charger APRÈS la bascule (boot, chargement lent) :
-// on relance 'go' — le player mémorise aussi le go arrivé trop tôt
-nx.addEventListener('load', () => { if (onDiapos) go(); });
+// player fraîchement chargé → contenu utilisable. Filet de sécurité :
+// un player qui n'émet pas 'ready' (ancienne version) serait révélé
+// tard — après un délai on le considère prêt plutôt que d'attendre
+// jusqu'au watchdog
+nx.addEventListener('load', () => {
+  nxDead = false;
+  if (onDiapos) setTimeout(() => {
+    if (onDiapos && nx.style.display === 'none') {
+      nxReady = true;
+      if (veilPeak) revealNx();
+    }
+  }, 2000);
+});
 
 window.addEventListener('message', e => {
-  if (e.data === 'nextevents:done') { startJauges(); return; }
+  // le player entame son fondu de fin : le voile monte tout de suite —
+  // le fondu interne du player se poursuit dessous, le retour jauges
+  // est un seul fondu au noir. Dès ce message le player est mort
+  // (done posé) : une bascule devra le recharger
+  if (e.data === 'nextevents:ending') {
+    nxDead = true;
+    if (onDiapos) startJauges();
+    return;
+  }
+  if (e.data === 'nextevents:done') {
+    nxDead = true;   // once=1 : ce player ne rejouera pas
+    if (onDiapos) startJauges();   // 'ending' a souvent déjà relancé
+    return;
+  }
+  // diapo réellement rendue dans l'iframe cachée : si le voile est en
+  // haut en attente d'un player rechargé, on révèle maintenant
+  if (e.data === 'nextevents:ready') {
+    nxReady = true;
+    if (veilPeak && onDiapos && nx.style.display === 'none') revealNx();
+    return;
+  }
   // la page encapsulée signale la fin de SON affichage : bascule
   if (MSG && e.source === jauges.contentWindow && e.data === MSG)
     switchToDiapos();

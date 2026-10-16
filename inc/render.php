@@ -274,8 +274,7 @@ function apply_spec_prefs($events) {
      *   - SPEC_DROPS      : fragments à virgules retirés des valeurs —
      *                       les specs sont des listes jointes par
      *                       « · » : on enlève un item sans perdre les
-     *                       autres (ex. « Dispositifs d'écoute
-     *                       amplifiée »)
+     *                       autres (ex. « Écoute amplifiée »)
      *  Une clé forcée mais masquée par SPECS_SHOW n'est pas ajoutée. */
     $shown = array_filter(array_map('trim', explode(',', SPECS_SHOW)));
     $show = $shown ? array_flip($shown) : null;

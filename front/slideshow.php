@@ -12,6 +12,9 @@
  *           émet postMessage('nextevents:done') vers le parent —
  *           pensé pour être iframé dans jauges.php : la page mère
  *           alterne elle-même jauges ↔ groupe de diapos.
+ *           Messages émis : 'nextevents:ready' (diapo affichée),
+ *           'nextevents:ending' (début du fondu de sortie — le parent
+ *           peut fondre en parallèle), 'nextevents:done' (fin réelle).
  *         ?hold=1 → pose la 1re diapo dès le chargement puis attend
  *           postMessage('nextevents:go') du parent pour démarrer —
  *           permet de précharger l'iframe cachée pendant la phase
@@ -98,7 +101,7 @@ window.addEventListener('message', e => {
 
 let slides = [], idx = -1, cur = null, timer = null;
 let delay = 8, trans = 'fade', dur = 1500, done = false;
-let total = 0, effOffset = OFFSET;   // offset réellement joué
+let total = 0;
 let sessionOff = null, posSaved = false;
 
 /* La diapo est dessinée en pixels fixes (1080×1920) : on met
@@ -133,6 +136,11 @@ function show(name) {
   const reveal = () => {
     if (f.style.visibility === 'visible') return;
     f.style.visibility = 'visible';
+    // diapo réellement à l'écran : un superviseur qui a préchargé ou
+    // rechargé cette iframe cachée sait qu'il peut la montrer sans
+    // flash noir (le parent ignore le message quand il n'attend pas)
+    if (window.parent !== window)
+      window.parent.postMessage('nextevents:ready', '*');
     if (fadeIn) {
       wrap.getBoundingClientRect();
       wrap.style.transition = `opacity ${dur}ms`;
@@ -180,6 +188,12 @@ function arm() {
   if (ONCE && idx === slides.length - 1) {
     timer = setTimeout(() => {
       done = true;
+      // pré-annonce de fin : le superviseur lance SON fondu de sortie
+      // en parallèle du fondu interne — un seul fondu perçu au lieu de
+      // deux qui s'enchaînent (noir prolongé sinon). 'done' reste émis
+      // à la fin pour les parents qui coupent l'iframe sec
+      if (window.parent !== window)
+        window.parent.postMessage('nextevents:ending', '*');
       // sortie de groupe : fondu de disparition vers le noir avant
       // de rendre la main à la page mère (qui cache l'iframe au
       // postMessage — sans lui, coupure franche)
@@ -218,7 +232,6 @@ async function poll() {
       }
       off = sessionOff;
     }
-    effOffset = off;
     let list = r.slides;
     if (off || LIMIT) list = list.slice(off, off + LIMIT || undefined);
     // position du prochain groupe mémorisée dès le chunk déterminé —
@@ -230,11 +243,12 @@ async function poll() {
       const nxt = (off + list.length) % (total || list.length);
       try { localStorage.setItem(LSKEY, String(nxt)); } catch (e) {}
     }
+    const curName = slides[idx];    // diapo affichée, si en cours
     const changed = JSON.stringify(list) !== JSON.stringify(slides);
     slides = list;
     document.getElementById('empty').style.display =
       slides.length ? 'none' : 'grid';
-    if (changed && (!slides.length || !slides.includes(slides[idx])))
+    if (changed && (!slides.length || !slides.includes(curName)))
       idx = -1;  // diapo courante supprimée : repartir proprement
     if (idx < 0 && slides.length) {
       if (HOLD && !wantGo) {

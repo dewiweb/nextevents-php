@@ -28,7 +28,7 @@ const OA_TAG_LABEL = [
     'atelier-4c' => 'Rendez-vous 4C',
 ];
 
-// mots-clés OA « déficiences » → mention d'accessibilité actionnable
+// mots-clés OA « déficience » → mention d'accessibilité actionnable
 const ACCESS_KEYWORDS = [
     'defautidif_lsf' => 'Interprétation en LSF',
     'defauditif_amp' => 'Écoute amplifiée',
@@ -195,7 +195,9 @@ function oa_base_map($cat_value, $cat_label, $public_label, $kws, $cond,
                      $credit, $lieu, $access_codes) {
     /** Construit l'événement normalisé — v2 et legacy convergent ici.
      *  Produit : title, url, tag, specs{}, desc(_long/_md), series,
-     *  image, credit, _dt/_dt_end (bornes locales), pinned, _oa_cat. */
+     *  image, credit, _dt/_dt_end (bornes locales), pinned, _oa_cat.
+     *  $access_codes : codes « accessibility » du lieu (hi/vi/mi/pi/ii
+     *  — normalisés en amont, pas encore affichés sur les diapos). */
     $pairs = oa_timings_pairs($timings);
     if ($pairs) {
         [$date_spec, $n, $dur, $dt, $dt_end, $pinned] =
