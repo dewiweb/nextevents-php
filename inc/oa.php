@@ -31,7 +31,7 @@ const OA_TAG_LABEL = [
 // mots-clés OA « déficiences » → mention d'accessibilité actionnable
 const ACCESS_KEYWORDS = [
     'defautidif_lsf' => 'Interprétation en LSF',
-    'defauditif_amp' => 'Dispositifs d\'écoute amplifiée',
+    'defauditif_amp' => 'Écoute amplifiée',
     'defvisuel' => 'Audiodescription',
 ];
 
@@ -44,7 +44,7 @@ const ACCESS_PATTERNS = [
     ['#audiodescri\w*|audio-description#i', 'Audiodescription'],
     ['#surtitr#i', 'Surtitrage'],
     ['#boucle magn[ée]tique|collier magn[ée]tique|casque d\'amplification#i',
-     'Dispositifs d\'écoute amplifiée'],
+     'Écoute amplifiée'],
 ];
 
 
