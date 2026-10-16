@@ -40,6 +40,7 @@ front/slideshow.php    ← la page à afficher sur le kiosk
 front/kiosk.php        ← superviseur si le kiosk doit alterner
                          avec une page existante (voir plus bas)
 front/gen.php          ← la génération (appelée toute seule)
+front/jauges-demo.php  ← page de test « jauges » (peut être omise)
 inc/  assets/          ← code et gabarits, ne pas toucher
 datas/nextevent/       ← sortie, doit être INSCRIPTIBLE par PHP
 ```
@@ -150,12 +151,22 @@ l'opacité de l'iframe diapos par-dessus les jauges — la page jauges
 n'est jamais masquée, le refresh interne du code existant continue
 en dessous.
 
-Seule exigence : la page jauges doit accepter d'être chargée en
-iframe (pas de `X-Frame-Options: DENY` ni `frame-ancestors` trop
-strict sur le vhost qui la sert —
-`curl -sI <url> | grep -iE 'x-frame|security'` pour vérifier). Si
-aucune diapo n'est générée ou si le player ne rend pas la main, le
-wrapper reste ou revient sur les jauges — jamais bloqué.
+Deux exigences :
+
+- la page encapsulée doit être une **vue « jauges seules »** — sans
+  alternance interne vers d'autres contenus. Si la page existante
+  gère déjà ses propres diapos ou sa pagination vers d'autres écrans,
+  elle tournerait en parallèle du superviseur ; pointer alors une
+  variante « jauges pures » (ex. `page.php?noevents=1` si le code
+  offre ce paramètre, ou l'ancienne page avant intégration)
+- la page jauges doit accepter d'être chargée en iframe (pas de
+  `X-Frame-Options: DENY` ni `frame-ancestors` trop strict sur le
+  vhost qui la sert — `curl -sI <url> | grep -iE 'x-frame|security'`
+  pour vérifier) et partager le **même schéma** `http`/`https` que le
+  superviseur
+
+Si aucune diapo n'est générée ou si le player ne rend pas la main,
+le wrapper reste ou revient sur les jauges — jamais bloqué.
 
 Une **page de démo** joue le rôle des jauges pour tester ce scénario
 en local avec `php -S` — `front/jauges-demo.php` est une page
@@ -190,9 +201,11 @@ demandé est quand même servi.
    define('KIOSK_JAUGES', 'https://<jauges>/page.php');
    define('GEN_TOKEN', '<secret>');   // si un cron appelle ?force=1
    ```
-2. Vérifier que la page jauges accepte l'iframe et partage le même
-   schéma que le superviseur (Chrome refuse une iframe `http` dans
-   une page `https`) :
+2. Vérifier que la page jauges pointée est une vue **« jauges
+   seules »** (pas d'alternance interne vers d'autres contenus —
+   sinon elle tournerait en parallèle du superviseur) et qu'elle
+   accepte l'iframe + partage le même schéma que le superviseur
+   (Chrome refuse une iframe `http` dans une page `https`) :
    ```
    curl -sI https://<jauges>/page.php | grep -iE 'x-frame|frame-ancestors'
    ```
@@ -340,12 +353,13 @@ d'interface. Les plus utiles :
 | `SERIES_MAP` | `grandstemoins = …` | `keyword-oa = Libellé` par ligne — marque la série |
 | `SPECS_SHOW` | `''` | specs affichées, virgules (vide = toutes ; `Date` toujours gardée) |
 | `SPEC_OVERRIDES` | `''` | `Clé = valeur` par ligne — force/ajoute une spec |
-| `SPEC_DROPS` | `''` | items retirés d'une spec, virgules — ex. `'Dispositifs d\'écoute amplifiée'` enlève cette mention d'`Accessibilité` sans masquer `LSF · Surtitrage` |
+| `SPEC_DROPS` | `''` | items retirés d'une spec, virgules — ex. `'Écoute amplifiée'` enlève cette mention d'`Accessibilité` sans masquer `LSF · Surtitrage` |
 | `SLIDE_DELAY` / `SLIDE_TRANSITION` / `SLIDE_TRANS_MS` | `8` / `fade` / `1500` | défauts servis par le manifest (surchargeables en query) |
 | `REFRESH_MIN` | `60` | âge max des données avant régénération auto |
 | `CACHE_IMG_DAYS` | `30` | purge du cache images (`0` = jamais) |
 | `KIOSK_JAUGES` | `''` | URL fixe encapsulée par `kiosk.php` (vide = `?jauges=` requis) |
 | `GEN_TOKEN` | `''` | si renseigné, `gen.php?force=1` exige `&token=…` (cron) |
+| `HTTP_VERIFY_SSL` | `true` | `false` = test local uniquement (PHP Windows sans bundle CA) |
 | `DATA_DIR` / `CACHE_DIR` / `ASSET_DIR` | `datas/…` / `assets` | chemins — `DATA_DIR` doit être inscriptible |
 
 ## Dépannage
