@@ -15,7 +15,7 @@ dossier inscriptible.
 OpenAgenda ──> gen.php ──> datas/nextevent/<fmt>/html/slide-*.html
                                  + manifest.txt
 kiosk Chrome ─> kiosk.php ─> alterne page existante (jauges)
-                │               et diapos en fondu (option A)
+                │               et diapos, fondus au noir (option A)
                 └─ ou ─> slideshow.php ─> diapos seules
 ```
 
@@ -145,11 +145,11 @@ Exemples, du plus simple au plus réglé :
 La bascule est **sans latence** : l'iframe diapos précharge le groupe
 suivant pendant la phase jauges (`hold=1` du player) et le wrapper
 envoie `nextevents:go` au moment de la bascule — la première diapo
-est déjà rendue. Elle se fait en **fondu enchaîné** (durée `tdur`) :
-les deux iframes étant empilées plein écran, le wrapper joue sur
-l'opacité de l'iframe diapos par-dessus les jauges — la page jauges
-n'est jamais masquée, le refresh interne du code existant continue
-en dessous.
+est déjà rendue. Chaque transition est un **fondu au noir** : un voile
+noir plein écran monte (durée `tdur`), le contenu s'échange dessous,
+puis le voile redescend (`tdur` encore — une bascule complète dure
+donc ≈ 2×`tdur`). La page jauges n'est jamais masquée ni déchargée,
+le refresh interne du code existant continue en dessous.
 
 Deux exigences :
 
@@ -287,11 +287,18 @@ Comment ça marche :
 - `hold=1` → la 1re diapo est posée dès le chargement puis le player
   attend `postMessage('nextevents:go')` de la page mère — l'iframe
   peut donc être **préchargée** pendant la phase jauges et la bascule
-  se fait sans latence (pas de noir, pas d'attente de chargement).
+  se fait sans latence (pas d'attente de chargement).
+- **Messages émis par le player** (la page mère les écoute ou non) :
+  `nextevents:ready` dès qu'une diapo est réellement affichée (utile
+  pour révéler une iframe préchargée sans flash),
+  `nextevents:ending` au début du fondu de sortie de fin de groupe
+  (le parent peut fondre en parallèle — utilisé par `kiosk.php`),
+  puis `nextevents:done` à la toute fin.
 - Avec `transition=fade` (défaut), la première diapo du groupe
   apparaît en fondu depuis le noir et la dernière disparaît en
-  fondu **avant** le `postMessage` — pas de coupure franche à
-  l'alternance. `slide`/`none` gardent des bords francs.
+  fondu **avant** le `postMessage('nextevents:done')` — pas de
+  coupure franche pour une page mère qui masque l'iframe sec.
+  `slide`/`none` gardent des bords francs.
 - **Sans `offset` dans l'URL**, le slideshow mémorise tout seul où il
   en est (`localStorage`) : chaque rechargement reprend au groupe
   **suivant**, et boucle au début après les dernières. La page mère
@@ -310,9 +317,9 @@ Comment ça marche :
 | Paramètre | Défaut | Effet |
 |---|---|---|
 | `fmt` | `portrait-screen` | format : `portrait-screen` (1080×1920), `landscape` (1920×1080) |
-| `delay` | `8` s | durée d'affichage par diapo |
-| `transition` | `fade` | `fade`, `slide`, `none` |
-| `tdur` | `1500` ms | durée de transition |
+| `delay` | `8` s | durée d'affichage par diapo (plancher 2 s côté player) |
+| `transition` | `fade` | `fade`, `slide`, `none` — transitions **entre diapos** |
+| `tdur` | `1500` ms | durée de chaque sens de transition — dans `kiosk.php`, pilote aussi le voile noir (une bascule ≈ 2×`tdur`) |
 | `limit` | tout | joue seulement N diapos |
 | `offset` | — | démarre à la diapo N (**désactive la reprise auto**) |
 | `once` | — | `once=1` : s'arrête après `limit` diapos + `postMessage` vers la page mère |
@@ -334,7 +341,8 @@ catégories — seules les deux premières sont à connaître :
 - **Protocole interne** — à ne pas régler à la main : `once`,
   `hold`, `offset` (reprise automatique), `manifest` (endpoint JSON),
   `force`/`token` (action de génération), `refresh`/`signal`
-  (paramètres de la page de démo).
+  (paramètres de la page de démo), et les `postMessage` de
+  coordination `nextevents:go`/`ready`/`ending`/`done`.
 
 ## Réglages (`config.php`)
 
