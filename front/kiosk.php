@@ -28,6 +28,9 @@
  */
 
 require_once dirname(__DIR__) . '/config.php';
+// proxies qui préfixent les requêtes du chemin de ce script :
+// /front/kiosk.php/front/slideshow.php → délègue au vrai fichier
+require_once dirname(__DIR__) . '/inc/pathinfo.php';
 
 // KIOSK_JAUGES (config.php) fixe la page encapsulée : une fois
 // renseignée, ?jauges= est ignoré — l'iframe superviseur ne peut pas
