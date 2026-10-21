@@ -395,6 +395,7 @@ En CLI : `php front/gen.php` force une génération (cron possible) ;
 
 ## Détails techniques
 
+- **Diapos auto-adaptatives** : chaque `slide-*.html` contient un petit script qui met le document à l'échelle de son cadre (centré, « contain ») — une diapo peut donc être **iframée directement** à n'importe quelle taille sans player ni zoom. Aucun effet quand `slideshow.php` pilote (facteur 1).
 - **Purge automatique** : les `slide-*.html` hors programme sont
   supprimés à chaque génération ; `manifest.txt` est réécrit ; le
   cache images est purgé après `CACHE_IMG_DAYS` jours sans usage.

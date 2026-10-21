@@ -60,6 +60,30 @@ const TEMPLATES = [
 ];
 const BASE_CSS_IMPORT = '@import "slide_base.css";';
 
+// auto-échelle du document à son cadre, injectée avant </body> :
+// permet d'afficher une diapo en iframe DIRECTE (slide-*.html sans
+// player) quelle que soit la taille du cadre — mise à l'échelle
+// centrée « contain ». Quand le player fit() dimensionne déjà
+// l'iframe au canvas, le facteur vaut 1 : pur no-op.
+const SELF_FIT_JS = <<<'JS'
+<script>
+(function () {
+  function fit() {
+    var w = document.body.clientWidth || innerWidth,
+        h = document.body.clientHeight || innerHeight,
+        s = Math.min(innerWidth / w, innerHeight / h);
+    document.body.style.transformOrigin = '0 0';
+    document.body.style.transform =
+      'translate(' + ((innerWidth - w * s) / 2) + 'px,'
+                   + ((innerHeight - h * s) / 2) + 'px)'
+      + ' scale(' + s + ')';
+  }
+  addEventListener('load', fit);
+  addEventListener('resize', fit);
+})();
+</script>
+JS;
+
 // métriques de la colonne texte par gabarit — port de _LAYOUT de
 // l'app de bureau (hauteur/largeur utiles, hauteurs de ligne titre/
 // description, hauteur d'une ligne de specs normale/compacte).
@@ -282,8 +306,10 @@ function slide_template($orientation) {
                 TEMPLATES[$orientation] . ' : import '
                 . BASE_CSS_IMPORT . ' introuvable');
         $cache[$orientation] = str_replace(
-            BASE_CSS_IMPORT,
-            file_get_contents(ASSET_DIR . '/slide_base.css'), $src);
+            '</body>', SELF_FIT_JS . '</body>',
+            str_replace(BASE_CSS_IMPORT,
+                        file_get_contents(ASSET_DIR . '/slide_base.css'),
+                        $src));
     }
     return $cache[$orientation];
 }
