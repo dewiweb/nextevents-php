@@ -56,6 +56,7 @@ const TEMPLATES = [
     'portrait' => 'slide_template_portrait.html',
     'portrait-screen' => 'slide_template_portrait_screen.html',
     'portrait-tall' => 'slide_template_portrait_tall.html',
+    'portrait-uhd' => 'slide_template_portrait_uhd.html',
 ];
 const BASE_CSS_IMPORT = '@import "slide_base.css";';
 
@@ -81,6 +82,10 @@ const LAYOUT = [
                     'desc_lh'=>32*1.45,'desc_mt'=>30,'desc_max'=>14,
                     'desc_cpl'=>55,'spec_row'=>45,'spec_row_t'=>42,
                     'spec_gap'=>18,'spec_gap_t'=>14,'spec_pad'=>64],
+    'portrait-uhd' => ['col_h'=>1844,'title_w'=>1944,'h1_max'=>6,
+                    'desc_lh'=>64*1.45,'desc_mt'=>60,'desc_max'=>18,
+                    'desc_cpl'=>55,'spec_row'=>90,'spec_row_t'=>84,
+                    'spec_gap'=>36,'spec_gap_t'=>28,'spec_pad'=>128],
 ];
 // largeur moyenne d'un glyphe de titre, en fraction de la taille de
 // fonte — mesurée (~0,5 em) puis majorée : surestimer les lignes du
@@ -321,10 +326,12 @@ function slide_html($ev, $fonts, $orientation = 'landscape') {
     // dans l'app de bureau)
     $n = mb_strlen($ev['title']);
     if ($portrait)
-        $h1 = in_array($orientation,
-                       ['portrait-screen', 'portrait-tall'], true)
-            ? ($n < 50 ? 70 : ($n < 80 ? 57 : 46))
-            : ($n < 50 ? 76 : ($n < 80 ? 62 : 50));
+        $h1 = $orientation === 'portrait-uhd'
+            ? ($n < 50 ? 140 : ($n < 80 ? 114 : 92))
+            : (in_array($orientation,
+                        ['portrait-screen', 'portrait-tall'], true)
+               ? ($n < 50 ? 70 : ($n < 80 ? 57 : 46))
+               : ($n < 50 ? 76 : ($n < 80 ? 62 : 50)));
     else
         $h1 = $n < 50 ? 80 : ($n < 80 ? 64 : 52);
     $specs_cls = count($keys) >= 4 ? 'specs specs--tight' : 'specs';

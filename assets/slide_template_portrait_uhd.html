@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!--
+  ==========================================================================
+  Gabarit de diapo « événement » — PORTRAIT UHD (conçu 2160×3840, 9:16)
+  ==========================================================================
+  Variante du portrait-screen à la RÉSOLUTION NATIVE de l'écran kiosk
+  4K pivoté : affichable 1:1 en iframe directe sans player ni scaling
+  (zoom navigateur superflu), et parfaitement nette via fit() sinon.
+
+  Contrairement au portrait-tall (1080×2160, plus élancé), le ratio
+  reste 9:16 et la composition est strictement identique au
+  portrait-screen (mêmes proportions, métriques ×2).
+
+  Rempli par inc/render.php (fonction tpl_substitute) — mêmes
+  variables que le gabarit paysage (voir son commentaire d'en-tête).
+
+  Charte commune : slide_base.css (injecté à la ligne @import
+  ci-dessous). Ce gabarit ne contient que ses métriques (:root) et sa
+  composition propre (photo-block/content).
+-->
+<html lang="fr"><head><meta charset="utf-8">
+<style>
+/* ---------- Métriques portrait UHD 2160×3840 (×2 du portrait-screen) ------ */
+:root {
+    --w: 2160px;  --h: 3840px;          /* canvas = résolution native */
+
+    --card-radius: 112px;
+    --card-pad: 84px 88px;
+    --card-gap: 68px;
+
+    --wm-size: 1240px;
+    --wm-offset: -400px;
+
+    --photo-radius: 80px;
+    --photo-pos: center 28%;
+
+    --tag-inset: 44px;
+    --tag-pad: 22px 60px;
+    --tag-size: 54px;
+
+    --credit-inset: 36px;
+    --credit-size: 30px;
+    --credit-maxw: 640px;
+    --credit-pad: 10px 26px;
+
+    --h1-lines: 6;
+    --desc-size: 64px;
+    --desc-lh: 1.45;
+    --desc-mt: 60px;
+    --desc-maxw: none;
+    --desc-lines: 18;
+
+    --specs-gap: 36px;
+    --specs-pad-bottom: 128px;
+    --specs-gap-tight: 28px;
+    --spec-gap: 30px;
+    --spec-size: 66px;
+    --spec-size-tight: 58px;
+    --spec-icon: 72px;
+
+    --attrib-right: 68px;
+    --attrib-bottom: 48px;
+    --attrib-size: 38px;
+    --attrib-gap: 22px;
+    --attrib-b-size: 50px;
+    --attrib-b-pad: 18px 48px;
+}
+
+@import "slide_base.css";
+
+/* ---------- Composition portrait : visuel au-dessus ----------------------- */
+
+.photo-block { position: relative; flex: 0 0 1760px; }
+
+.content {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 20px;
+    min-height: 0;
+}
+</style></head><body>
+<div class="card">
+<div class="watermark watermark--tr">$logo_mark</div>
+<div class="watermark watermark--bl">$logo_mark</div>
+<div class="photo-block">
+  $media
+  <span class="tag">$tag</span>
+</div>
+<div class="content">
+  <h1 style="font-size:${h1_size}px">$title</h1>
+  <p class="desc" style="--desc-lines:${desc_lines}">$desc</p>
+  <div class="$specs_cls">$specs_html</div>
+</div>
+<div class="attrib">Tout le programme sur <b>lcl.bzh/prog</b></div>
+</div>
+</body></html>

@@ -32,9 +32,11 @@ define('OA_CATEGORIES', [
 
 // — Génération ——————————————————————————————————————————————————
 // formats produits : 'portrait-screen' (9:16 pour l'écran vertical),
-// 'portrait-tall' (1080×2160 — écran plus élancé, la hauteur en plus
-// profite à la description), 'landscape' (16:9), ou plusieurs
-define('FORMATS', ['portrait-screen', 'landscape', 'portrait-tall']);
+// 'portrait-tall' (1080×2160 — écran plus élancé), 'portrait-uhd'
+// (2160×3840 — résolution native 4K portrait : iframe directe sans
+// scaling), 'landscape' (16:9), ou plusieurs
+define('FORMATS', ['portrait-screen', 'landscape', 'portrait-tall',
+                   'portrait-uhd']);
 // nombre max d'événements par format (0 = sans limite)
 define('MAX_EVENTS', 12);
 // fenêtre en jours sur la PROCHAINE séance : 1 = « à partir de

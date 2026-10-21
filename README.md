@@ -316,7 +316,7 @@ Comment ça marche :
 
 | Paramètre | Défaut | Effet |
 |---|---|---|
-| `fmt` | `portrait-screen` | format : `portrait-screen` (1080×1920), `portrait-tall` (1080×2160), `landscape` (1920×1080) |
+| `fmt` | `portrait-screen` | format : `portrait-screen` (1080×1920), `portrait-tall` (1080×2160), `portrait-uhd` (2160×3840 — résolution native 4K portrait, iframe directe sans scaling), `landscape` (1920×1080) |
 | `delay` | `8` s | durée d'affichage par diapo (plancher 2 s côté player) |
 | `transition` | `fade` | `fade`, `slide`, `none` — transitions **entre diapos** |
 | `tdur` | `1500` ms | durée de chaque sens de transition — dans `kiosk.php`, pilote aussi le voile noir (une bascule ≈ 2×`tdur`) |
@@ -354,7 +354,7 @@ d'interface. Les plus utiles :
 | `OA_AGENDA` | `'leschampslibres'` | agenda OpenAgenda (slug ou uid) |
 | `OA_API_KEY` | `''` | vide → export public ; renseignée → API v2 officielle (plus complète) |
 | `OA_CATEGORIES` | les 5 vitrines | catégories OA : `rencontre`, `concert`, `projection`, `spectacle`, `evenement` + `animation`, `atelier`, `atelier-4c`, `visite`, `exposition` possibles |
-| `FORMATS` | `['portrait-screen','landscape','portrait-tall']` | formats générés |
+| `FORMATS` | `['portrait-screen','landscape','portrait-tall','portrait-uhd']` | formats générés |
 | `MAX_EVENTS` | `12` | diapos max par format (`0` = toutes) |
 | `DAY_OFFSET_MIN` / `MAX` | `0` / `null` | fenêtre en jours sur la prochaine séance — `1,1` = demain seul |
 | `NEXT_LABEL` | `'Prochaine séance : '` | préfixe des récurrents (vide = date seule) |
