@@ -316,7 +316,7 @@ Comment ça marche :
 
 | Paramètre | Défaut | Effet |
 |---|---|---|
-| `fmt` | `portrait-screen` | format : `portrait-screen` (1080×1920), `landscape` (1920×1080) |
+| `fmt` | `portrait-screen` | format : `portrait-screen` (1080×1920), `portrait-tall` (1080×2160), `landscape` (1920×1080) |
 | `delay` | `8` s | durée d'affichage par diapo (plancher 2 s côté player) |
 | `transition` | `fade` | `fade`, `slide`, `none` — transitions **entre diapos** |
 | `tdur` | `1500` ms | durée de chaque sens de transition — dans `kiosk.php`, pilote aussi le voile noir (une bascule ≈ 2×`tdur`) |
@@ -354,7 +354,7 @@ d'interface. Les plus utiles :
 | `OA_AGENDA` | `'leschampslibres'` | agenda OpenAgenda (slug ou uid) |
 | `OA_API_KEY` | `''` | vide → export public ; renseignée → API v2 officielle (plus complète) |
 | `OA_CATEGORIES` | les 5 vitrines | catégories OA : `rencontre`, `concert`, `projection`, `spectacle`, `evenement` + `animation`, `atelier`, `atelier-4c`, `visite`, `exposition` possibles |
-| `FORMATS` | `['portrait-screen','landscape']` | formats générés |
+| `FORMATS` | `['portrait-screen','landscape','portrait-tall']` | formats générés |
 | `MAX_EVENTS` | `12` | diapos max par format (`0` = toutes) |
 | `DAY_OFFSET_MIN` / `MAX` | `0` / `null` | fenêtre en jours sur la prochaine séance — `1,1` = demain seul |
 | `NEXT_LABEL` | `'Prochaine séance : '` | préfixe des récurrents (vide = date seule) |
@@ -363,6 +363,7 @@ d'interface. Les plus utiles :
 | `SPECS_SHOW` | `''` | specs affichées, virgules (vide = toutes ; `Date` toujours gardée) |
 | `SPEC_OVERRIDES` | `''` | `Clé = valeur` par ligne — force/ajoute une spec |
 | `SPEC_DROPS` | `''` | items retirés d'une spec, virgules — ex. `'Écoute amplifiée'` enlève cette mention d'`Accessibilité` sans masquer `LSF · Surtitrage` |
+| `DESC_MODE` / `DESC_MAX` | `'full'` / `400` | description : `auto` chapeau-markdown OA, `chapeau`, `long` détaillée, `full` chapeau+détaillée ; borne caractères (`0` = 400) |
 | `SLIDE_DELAY` / `SLIDE_TRANSITION` / `SLIDE_TRANS_MS` | `8` / `fade` / `1500` | défauts servis par le manifest (surchargeables en query) |
 | `REFRESH_MIN` | `60` | âge max des données avant régénération auto |
 | `CACHE_IMG_DAYS` | `30` | purge du cache images (`0` = jamais) |

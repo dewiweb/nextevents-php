@@ -55,8 +55,42 @@ const TEMPLATES = [
     'landscape' => 'slide_template.html',
     'portrait' => 'slide_template_portrait.html',
     'portrait-screen' => 'slide_template_portrait_screen.html',
+    'portrait-tall' => 'slide_template_portrait_tall.html',
 ];
 const BASE_CSS_IMPORT = '@import "slide_base.css";';
+
+// métriques de la colonne texte par gabarit — port de _LAYOUT de
+// l'app de bureau (hauteur/largeur utiles, hauteurs de ligne titre/
+// description, hauteur d'une ligne de specs normale/compacte).
+// Elles bornent la description à ce qui tient réellement : sinon
+// c'est -webkit-line-clamp qui tranche, en plein mot.
+const LAYOUT = [
+    'landscape' => ['col_h'=>892,'title_w'=>942,'h1_max'=>4,
+                    'desc_lh'=>34*1.38,'desc_mt'=>36,'desc_max'=>6,
+                    'desc_cpl'=>46,'spec_row'=>50,'spec_row_t'=>47,
+                    'spec_gap'=>26,'spec_gap_t'=>16,'spec_pad'=>0],
+    'portrait' => ['col_h'=>842,'title_w'=>1114,'h1_max'=>5,
+                   'desc_lh'=>32*1.4,'desc_mt'=>28,'desc_max'=>7,
+                   'desc_cpl'=>63,'spec_row'=>47,'spec_row_t'=>45,
+                   'spec_gap'=>20,'spec_gap_t'=>15,'spec_pad'=>64],
+    'portrait-screen' => ['col_h'=>922,'title_w'=>972,'h1_max'=>6,
+                    'desc_lh'=>32*1.45,'desc_mt'=>30,'desc_max'=>9,
+                    'desc_cpl'=>55,'spec_row'=>45,'spec_row_t'=>42,
+                    'spec_gap'=>18,'spec_gap_t'=>14,'spec_pad'=>64],
+    'portrait-tall' => ['col_h'=>1162,'title_w'=>972,'h1_max'=>6,
+                    'desc_lh'=>32*1.45,'desc_mt'=>30,'desc_max'=>14,
+                    'desc_cpl'=>55,'spec_row'=>45,'spec_row_t'=>42,
+                    'spec_gap'=>18,'spec_gap_t'=>14,'spec_pad'=>64],
+];
+// largeur moyenne d'un glyphe de titre, en fraction de la taille de
+// fonte — mesurée (~0,5 em) puis majorée : surestimer les lignes du
+// titre protège la description, jamais l'inverse
+const TITLE_CHAR_W = 0.55;
+// fins de phrase acceptées pour les coupures — le site joint les
+// paragraphes de desc_long par « \n » : sans les variantes \n la
+// plupart des fins de phrase réelles seraient ratées (coupe au mot)
+const SENT_END = ['. ', '! ', '? ', '… ', ".\n", "!\n", "?\n",
+                  "…\n", "\n"];
 
 const FONTS = [
     'regular' => '/build/app/shop/fonts/OldschoolGrotesk-Regular-subset.914288c7.woff2',
@@ -87,11 +121,99 @@ function md_inline($text) {
 }
 
 function truncate_text($text, $limit = 400) {
+    /** Coupe à la dernière fin de phrase présente dans la fenêtre,
+     *  sinon au dernier mot complet + « … » — jamais au milieu d'un
+     *  mot, et pas au milieu d'une phrase si une fin de phrase existe
+     *  avant la borne. Port de truncate() de l'app de bureau. */
     if (mb_strlen($text) <= $limit) return $text;
-    $cut = mb_substr($text, 0, $limit);
-    $pos = mb_strrpos($cut, ' ');
-    if ($pos !== false) $cut = mb_substr($cut, 0, $pos);
-    return rtrim($cut, '.,;:!?') . '…';
+    $w = mb_substr($text, 0, $limit);
+    $i = -1;
+    foreach (SENT_END as $s) {
+        $p = mb_strrpos($w, $s);
+        if ($p !== false && $p > $i) $i = $p;
+    }
+    if ($i > 0)
+        return rtrim(mb_substr($w, 0, $i), ".,;:!?\n") . '…';
+    $pos = mb_strrpos($w, ' ');
+    if ($pos !== false) $w = mb_substr($w, 0, $pos);
+    return rtrim($w, '.,;:!?') . '…';
+}
+
+function desc_lines($orientation, $n_title, $h1_size, $n_specs) {
+    /** Lignes de description réellement disponibles sur la diapo :
+     *  hauteur de la colonne moins le titre estimé (borné par son
+     *  clamp) et le bloc specs. ≥ 1. Port de _desc_lines. */
+    $lay = LAYOUT[$orientation];
+    $t_lines = min($lay['h1_max'], max(1,
+        (int)ceil($n_title * $h1_size * TITLE_CHAR_W
+                  / $lay['title_w'])));
+    $tight = $n_specs >= 4;
+    $specs_h = $n_specs * ($tight ? $lay['spec_row_t']
+                                  : $lay['spec_row'])
+             + max(0, $n_specs - 1) * ($tight ? $lay['spec_gap_t']
+                                              : $lay['spec_gap'])
+             + ($n_specs ? $lay['spec_pad'] : 0);
+    $avail = $lay['col_h'] - $t_lines * $h1_size * 1.06
+           - $lay['desc_mt'] - $specs_h - 8;
+    return max(1, min($lay['desc_max'],
+                      (int)floor($avail / $lay['desc_lh'])));
+}
+
+function desc_html($ev, $orientation, $max_lines) {
+    /** Texte de la description selon DESC_MODE : 'chapeau' (texte
+     *  court), 'long' (description détaillée — le clamp CSS borne
+     *  l'affichage), 'auto' (markdown OA si présent, chapeau sinon).
+     *  $max_lines borne aussi au nombre de lignes calculé pour la
+     *  diapo (desc_lines). Port de _desc_html. */
+    if (DESC_MODE === 'chapeau')
+        $src = $ev['desc'] ?? '';
+    elseif (DESC_MODE === 'long')
+        // desc_long d'abord : desc_md est le *chapeau* markdown OA,
+        // pas la description détaillée — il masquerait desc_long
+        $src = ($ev['desc_long'] ?? '') ?: ($ev['desc_md'] ?? '')
+               ?: ($ev['desc'] ?? '');
+    elseif (DESC_MODE === 'full') {
+        // chapeau puis détaillée : le chapeau OA sert d'accroche à
+        // la longue — sauf si celle-ci commence déjà par lui (pas de
+        // doublon ; comparaison sur la version sans markdown)
+        $a = ($ev['desc_md'] ?? '') ?: ($ev['desc'] ?? '');
+        $b = $ev['desc_long'] ?? '';
+        if ($a && $b
+            && mb_strpos(oa_clean_md($b), oa_clean_md($a)) === 0)
+            $a = '';
+        $src = trim($a . ($a && $b ? "\n\n" : '') . $b);
+    } else
+        $src = ($ev['desc_md'] ?? '') ?: ($ev['desc'] ?? '');
+    // toujours tronquer côté texte, plafonné à la capacité du gabarit
+    $lay = LAYOUT[$orientation];
+    $cap = min(DESC_MAX ?: 400,
+               $lay['desc_cpl'] * ($max_lines ?: $lay['desc_max']));
+    if (DESC_MODE !== 'chapeau' && mb_strlen($src) > $cap) {
+        // première phrase plus longue que la borne : la troncature
+        // tomberait en plein milieu — retomber sur le chapeau, pensé
+        // pour tenir dans la zone
+        $end = -1;
+        foreach (SENT_END as $s) {
+            $p = strpos($src, $s);
+            if ($p !== false && $p > $end) $end = $p;
+        }
+        if ($end < 0 || $end + 2 > $cap)
+            $src = ($ev['desc'] ?? '') ?: $src;
+    }
+    $txt = truncate_text($src, $cap);
+    if ($max_lines && strpos($txt, "\n") !== false) {
+        // un « \n » rendu en <br> consomme aussi une ligne du clamp
+        // sans que la borne en caractères le sache — resserrer tant
+        // que le texte ne rentre pas dans les lignes prévues
+        $cpl = $lay['desc_cpl'];
+        $used = fn($t) => array_sum(array_map(
+            fn($s) => max(1, (int)ceil(mb_strlen($s) / $cpl)),
+            explode("\n", $t)));
+        while ($used($txt) > $max_lines && mb_strlen($txt) > 40)
+            $txt = truncate_text($src,
+                                 (int)(mb_strlen($txt) * 0.85));
+    }
+    return md_inline($txt);
 }
 
 function asset_svg($name) {
@@ -199,12 +321,20 @@ function slide_html($ev, $fonts, $orientation = 'landscape') {
     // dans l'app de bureau)
     $n = mb_strlen($ev['title']);
     if ($portrait)
-        $h1 = $orientation === 'portrait-screen'
+        $h1 = in_array($orientation,
+                       ['portrait-screen', 'portrait-tall'], true)
             ? ($n < 50 ? 70 : ($n < 80 ? 57 : 46))
             : ($n < 50 ? 76 : ($n < 80 ? 62 : 50));
     else
         $h1 = $n < 50 ? 80 : ($n < 80 ? 64 : 52);
     $specs_cls = count($keys) >= 4 ? 'specs specs--tight' : 'specs';
+
+    // lignes de description réellement disponibles : la colonne est
+    // partagée entre titre, description et specs — la borne texte
+    // (caractères) et le clamp CSS (lignes, via $desc_lines) restent
+    // alignés, sinon l'un coupe en plein mot là où l'autre a déjà
+    // posé « … »
+    $d_lines = desc_lines($orientation, $n, $h1, count($keys));
 
     $credit = htmlspecialchars($ev['credit'] ?? '', ENT_QUOTES, 'UTF-8');
     if (!empty($ev['img_data'])) {
@@ -234,8 +364,8 @@ function slide_html($ev, $fonts, $orientation = 'landscape') {
         'tag' => htmlspecialchars($tag, ENT_QUOTES, 'UTF-8'),
         'h1_size' => $h1,
         'title' => htmlspecialchars($ev['title'], ENT_QUOTES, 'UTF-8'),
-        'desc' => md_inline(truncate_text(
-            ($ev['desc_md'] ?? '') ?: ($ev['desc'] ?? ''))),
+        'desc' => desc_html($ev, $orientation, $d_lines),
+        'desc_lines' => $d_lines,
         'specs_cls' => $specs_cls,
         'specs_html' => $specs_html,
         'logo_mark' => asset_svg('logo-mark.svg'),

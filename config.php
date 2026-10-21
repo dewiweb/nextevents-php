@@ -32,8 +32,9 @@ define('OA_CATEGORIES', [
 
 // — Génération ——————————————————————————————————————————————————
 // formats produits : 'portrait-screen' (9:16 pour l'écran vertical),
-// 'landscape' (16:9) ou les deux
-define('FORMATS', ['portrait-screen', 'landscape']);
+// 'portrait-tall' (1080×2160 — écran plus élancé, la hauteur en plus
+// profite à la description), 'landscape' (16:9), ou plusieurs
+define('FORMATS', ['portrait-screen', 'landscape', 'portrait-tall']);
 // nombre max d'événements par format (0 = sans limite)
 define('MAX_EVENTS', 12);
 // fenêtre en jours sur la PROCHAINE séance : 1 = « à partir de
@@ -57,6 +58,16 @@ define('SPEC_OVERRIDES', '');
 define('SPEC_DROPS', '');
 // séries éditoriales : « keyword-oa = Libellé » par ligne
 define('SERIES_MAP', "grandstemoins = Les grands témoins\n");
+// source de la description (mêmes choix que l'app de bureau) :
+// 'auto' = markdown OA si présent, chapeau sinon ; 'chapeau' = texte
+// court ; 'long' = description détaillée ; 'full' = chapeau puis
+// description détaillée (le chapeau OA sert d'accroche à la longue).
+// 'long'/'full' prennent tout leur sens avec 'portrait-tall' qui a
+// la place de les afficher.
+define('DESC_MODE', 'full');
+// troncature de la description en caractères (0 = borne sûre 400) ;
+// le budget lignes du gabarit (--desc-lines) borne de toute façon
+define('DESC_MAX', 400);
 
 // — Diaporama ————————————————————————————————————————————————————
 define('SLIDE_DELAY', 8);        // secondes par diapo
