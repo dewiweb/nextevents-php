@@ -358,6 +358,7 @@ d'interface. Les plus utiles :
 | `MAX_EVENTS` | `12` | diapos max par format (`0` = toutes) |
 | `DAY_OFFSET_MIN` / `MAX` | `0` / `null` | fenêtre en jours sur la prochaine séance — `1,1` = demain seul |
 | `NEXT_LABEL` | `'Prochaine séance : '` | préfixe des récurrents (vide = date seule) |
+| `DATE_FORMAT` | `'long'` | affichage de la date : `compact` 27/10/26 · `noyear` 27/10 · `short` « mar. 27 oct. » · `long` « mardi 27 octobre » |
 | `SERIES_MAP` | `grandstemoins = …` | `keyword-oa = Libellé` par ligne — marque la série |
 | `SPECS_SHOW` | `''` | specs affichées, virgules (vide = toutes ; `Date` toujours gardée) |
 | `SPEC_OVERRIDES` | `''` | `Clé = valeur` par ligne — force/ajoute une spec |

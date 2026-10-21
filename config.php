@@ -43,6 +43,11 @@ define('DAY_OFFSET_MIN', 0);
 define('DAY_OFFSET_MAX', null);
 // préfixe des événements récurrents (vide = date seule)
 define('NEXT_LABEL', 'Prochaine séance : ');
+// format d'affichage de la spec Date (mêmes choix que l'app de
+// bureau) : 'compact' 27/10/26 | 'noyear' 27/10 | 'short'
+// « mar. 27 oct. » | 'long' « mardi 27 octobre » — l'heure, le
+// préfixe récurrent et « Du … au … » sont conservés
+define('DATE_FORMAT', 'long');
 // specs affichées (vide = toutes ; 'Date' est toujours conservée)
 define('SPECS_SHOW', '');
 // valeurs forcées : « Clé = valeur » par ligne

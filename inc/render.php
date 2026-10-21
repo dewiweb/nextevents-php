@@ -40,6 +40,17 @@ const ICONS = [
 const ICON_VIEWBOX = ['group' => '0 0 22 22'];
 const ICON_PATH_ATTRS = ['accessibility' => ' fill-rule="evenodd" clip-rule="evenodd"'];
 
+// jours/mois français pour DATE_FORMAT — tables locales, pas de
+// dépendance à la locale OS (port des tables de l'app de bureau)
+const DOW_S = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
+const DOW_L = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi',
+               'samedi', 'dimanche'];
+const MON_S = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+               'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const MON_L = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+               'juillet', 'août', 'septembre', 'octobre', 'novembre',
+               'décembre'];
+
 const TEMPLATES = [
     'landscape' => 'slide_template.html',
     'portrait' => 'slide_template_portrait.html',
@@ -249,17 +260,52 @@ function slugify($text, $maxlen = 40) {
 function slide_name($ev, $idx) {
     /** Nom stable : date + titre — l'ordre alphabétique suit la
      *  chronologie, un événement garde son nom entre générations. */
-    $d = $ev['specs']['Date'] ?? '';
-    $prefix = sprintf('zz%02d', $idx);
-    if (preg_match('#(\d{2})/(\d{2})/(\d{2})#', $d, $m))
-        $prefix = "20{$m[3]}-{$m[2]}-{$m[1]}";
-    if (preg_match('#(\d{1,2})h(\d{2})?#', $d, $t))
-        $prefix .= sprintf('-%02dh%s', (int)$t[1],
-                           $t[2] ?? '00');
+    $dt = $ev['_dt'] ?? null;
+    if ($dt) {
+        // _dt [a, m, j, h, min] : fiable quel que soit le format
+        // d'affichage de la spec Date (DATE_FORMAT ≠ compact retire
+        // le motif JJ/MM/AA du libellé — le nommage ne doit pas en
+        // dépendre)
+        $prefix = sprintf('%04d-%02d-%02d', $dt[0], $dt[1], $dt[2]);
+        if ($dt[3] || $dt[4])
+            $prefix .= sprintf('-%02dh%02d', $dt[3], $dt[4]);
+    } else {
+        $d = $ev['specs']['Date'] ?? '';
+        $prefix = sprintf('zz%02d', $idx);
+        if (preg_match('#(\d{2})/(\d{2})/(\d{2})#', $d, $m))
+            $prefix = "20{$m[3]}-{$m[2]}-{$m[1]}";
+        if (preg_match('#(\d{1,2})h(\d{2})?#', $d, $t))
+            $prefix .= sprintf('-%02dh%s', (int)$t[1],
+                               $t[2] ?? '00');
+    }
     if (!empty($ev['pinned']))
         // multi-jours en cours : 'slide-00-' trie avant 'slide-20…'
         $prefix = '00-' . $prefix;
     return "slide-$prefix-" . slugify($ev['title']);
+}
+
+function reformat_date_spec($text, $fmt) {
+    /** Reformate les dates « JJ/MM/AA » de la spec Date — l'heure,
+     *  « Du … au … » et le préfixe récurrent sont préservés (le token
+     *  JJ/MM/AA est le seul invariant commun aux sources). Port de
+     *  _reformat_date_spec de l'app de bureau. */
+    return preg_replace_callback(
+        '#(?<!\d)(\d{2})/(\d{2})/(\d{2})(?!\d)#',
+        function ($m) use ($fmt) {
+            $dd = (int)$m[1];
+            $mm = (int)$m[2];
+            $yy = (int)$m[3];
+            if ($fmt === 'noyear')
+                return sprintf('%02d/%02d', $dd, $mm);
+            // date('w') : 0 = dimanche → réindexer sur lundi = 0
+            $wd = ((int)date('w', mktime(0, 0, 0, $mm, $dd,
+                                       2000 + $yy)) + 6) % 7;
+            if ($fmt === 'short')
+                return DOW_S[$wd] . " $dd " . MON_S[$mm - 1];
+            if ($fmt === 'long')
+                return DOW_L[$wd] . " $dd " . MON_L[$mm - 1];
+            return $m[0];
+        }, $text);
 }
 
 function apply_spec_prefs($events) {
@@ -275,12 +321,16 @@ function apply_spec_prefs($events) {
      *                       les specs sont des listes jointes par
      *                       « · » : on enlève un item sans perdre les
      *                       autres (ex. « Écoute amplifiée »)
+     *   - DATE_FORMAT     : reformate les « JJ/MM/AA » de la spec Date
+     *                       (compact|noyear|short|long — cf. config)
      *  Une clé forcée mais masquée par SPECS_SHOW n'est pas ajoutée. */
     $shown = array_filter(array_map('trim', explode(',', SPECS_SHOW)));
     $show = $shown ? array_flip($shown) : null;
     $drops = array_filter(array_map('trim', explode(',', SPEC_DROPS)));
     $over = parse_kv(SPEC_OVERRIDES);
-    if (!$show && !$over && !$drops) return $events;
+    $date_fmt = DATE_FORMAT;
+    if (!$show && !$over && !$drops && $date_fmt === 'compact')
+        return $events;
     foreach ($events as &$ev) {
         $specs = $ev['specs'] ?? [];
         if ($show !== null)
@@ -297,6 +347,9 @@ function apply_spec_prefs($events) {
             if ($v !== '' && ($show === null || isset($show[$k])
                               || $k === 'Date'))
                 $specs[$k] = $v;
+        if ($date_fmt !== 'compact' && !empty($specs['Date']))
+            $specs['Date'] = reformat_date_spec($specs['Date'],
+                                                $date_fmt);
         $ev['specs'] = $specs;
     }
     unset($ev);
