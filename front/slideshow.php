@@ -22,6 +22,12 @@
  * JSON  : ?manifest=<fmt> → {slides, delay, transition, tdur}
  */
 
+// proxies qui préfixent les requêtes du chemin de ce script :
+// /front/slideshow.php/datas/… → sert le vrai fichier statique,
+// /front/slideshow.php/front/gen.php → exécute gen.php — sans ça le
+// player se recharge lui-même en récursion dans chaque iframe
+// (routeur partagé, cf. inc/pathinfo.php)
+require_once dirname(__DIR__) . '/inc/pathinfo.php';
 require_once dirname(__DIR__) . '/config.php';
 
 $fmt = $_GET['fmt'] ?? ($_GET['manifest'] ?? FORMATS[0]);
@@ -31,6 +37,8 @@ $fmt = in_array($fmt, FORMATS, true) ? $fmt : FORMATS[0];
 // '../datas/nextevent/<fmt>/html/<fichier>' — chemin RELATIF depuis
 // /front/. Si ce fichier est déplacé (autre dossier, autre depth),
 // ajuster $base ci-dessous ET vérifier que datas/ est sous webroot.
+// Un proxy qui préfixe les requêtes du chemin du script les mène à
+// …/slideshow.php/datas/… : inc/pathinfo.php les sert quand même.
 $base = '../datas/nextevent/' . $fmt;
 $dir = dirname(__DIR__) . '/datas/nextevent/' . $fmt;
 
