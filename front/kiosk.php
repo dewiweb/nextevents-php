@@ -21,6 +21,10 @@
  *           durée d'affichage adaptative côté existant (pagination
  *           variable) ; ?every= fait alors office de borne max.
  *         ?fmt=portrait-screen  &delay=&tdur=&transition=  → slideshow
+ *         ?layout=split&dir=v|h   pas d'alternance : jauges 2/3 et
+ *           diapos 1/3 visibles en permanence, chacune dans sa iframe
+ *           (v = bandeau vertical pour écran paysage, h = horizontal
+ *           pour écran portrait ; fmt adapté sauf ?fmt= explicite)
  *
  * Le kiosk pointe sur : /front/kiosk.php?jauges=<url-de-la-page>
  * Si aucune diapo n'est générée, on reste sur les jauges — l'écran
@@ -69,6 +73,40 @@ $tdur  = max(0, (int)($_GET['tdur'] ?? SLIDE_TRANS_MS));
 $trans = $_GET['transition'] ?? SLIDE_TRANSITION;
 $trans = in_array($trans, ['fade', 'slide', 'none'], true)
        ? $trans : 'fade';
+
+// — mode « split » : jauges + diapos visibles en permanence, chacune
+// dans sa propre iframe (pas d'alternance — voile et postMessage de
+// coordination n'ont plus lieu d'être). ?layout=split&dir=v|h :
+//   v = jauges 2/3 à gauche + diapos 1/3 à droite (écran paysage)
+//   h = jauges 2/3 en haut + diapos 1/3 en bas (écran portrait)
+// fmt par défaut adapté au bandeau (portrait si dir=v, landscape si
+// dir=h) — surchargeable par ?fmt=.
+if (($_GET['layout'] ?? '') === 'split') {
+    $dir = ($_GET['dir'] ?? 'v') === 'h' ? 'h' : 'v';
+    if (!isset($_GET['fmt']))
+        $fmt = $dir === 'v'
+             ? (in_array('portrait-screen', FORMATS, true)
+                ? 'portrait-screen' : FORMATS[0])
+             : (in_array('landscape', FORMATS, true)
+                ? 'landscape' : FORMATS[0]);
+    $src = dirname($_SERVER['SCRIPT_NAME']) . '/slideshow.php'
+         . '?fmt=' . rawurlencode($fmt)
+         . "&delay=$delay&tdur=$tdur&transition=$trans";
+    $css = $dir === 'v' ? 'grid-template-columns:2fr 1fr'
+                        : 'grid-template-rows:2fr 1fr';
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
+       . '<title>Kiosk split</title><style>'
+       . 'html,body{margin:0;height:100%;background:#000;'
+       . 'overflow:hidden}'
+       . '#split{display:grid;height:100%;' . $css . '}'
+       . 'iframe{width:100%;height:100%;border:0;display:block}'
+       . '</style></head><body><div id="split">'
+       . '<iframe src="' . htmlspecialchars($jauges) . '"></iframe>'
+       . '<iframe src="' . htmlspecialchars($src) . '"></iframe>'
+       . '</div></body></html>';
+    exit;
+}
 
 $msg = (string)($_GET['msg'] ?? '');
 // chemin absolu depuis la racine web (un src relatif casserait si la
