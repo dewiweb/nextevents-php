@@ -57,6 +57,9 @@ if (isset($_GET['manifest'])) {
     echo json_encode([
         'slides' => $slides, 'delay' => SLIDE_DELAY,
         'transition' => SLIDE_TRANSITION, 'tdur' => SLIDE_TRANS_MS,
+        // mtime du manifest : buste le cache navigateur des
+        // slide-*.html régénérées sous le même nom de fichier
+        'v' => (int)@filemtime($mf),
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -107,7 +110,7 @@ window.addEventListener('message', e => {
   if (!started && idx >= 0) { started = true; arm(); }
 });
 
-let slides = [], idx = -1, cur = null, timer = null;
+let slides = [], idx = -1, cur = null, timer = null, ver = 0;
 let delay = 8, trans = 'fade', dur = 1500, done = false;
 let total = 0;
 let sessionOff = null, posSaved = false;
@@ -135,7 +138,7 @@ function show(name) {
   // la diapo « brute » (non scalée) dans le cadre 100%×100% — flash
   // portrait→paysage quand la fenêtre est verticale
   f.style.visibility = 'hidden';
-  f.src = BASE + '/html/' + encodeURIComponent(name);
+  f.src = BASE + '/html/' + encodeURIComponent(name) + '?v=' + ver;
   // entrée de groupe (pas de diapo précédente) : fondu d'apparition
   // depuis le noir, démarré quand la diapo est vraiment visible —
   // pas avant, sinon le fondu se ferait sur du vide
@@ -226,6 +229,7 @@ async function poll() {
     delay = qDelay || r.delay || 8;
     trans = qTrans || r.transition || 'fade';
     dur = qTdur || r.tdur || 1500;
+    ver = r.v || 0;
     total = r.slides.length;
     // fenêtre de travail : offset explicite (query) ou repris du
     // localStorage (alternance jauges ↔ diapos, même URL rechargée).

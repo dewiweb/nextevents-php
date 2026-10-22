@@ -51,6 +51,7 @@ if ($jauges !== '') {
 }
 if ($jauges === '') {
     header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
     echo '<!DOCTYPE html><meta charset="utf-8"><title>kiosk</title>'
        . '<body style="font:18px sans-serif;margin:3em">'
        . '<p><b>kiosk.php</b> — paramètre <code>jauges</code> manquant'
@@ -100,6 +101,7 @@ if (($_GET['layout'] ?? '') === 'split') {
     $full = $dir === 'v' ? 'grid-template-columns:1fr 0fr'
                          : 'grid-template-rows:1fr 0fr';
     header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
     echo '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
        . '<title>Kiosk split</title><style>'
        . 'html,body{margin:0;height:100%;background:#000;'

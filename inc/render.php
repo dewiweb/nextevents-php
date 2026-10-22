@@ -81,6 +81,38 @@ const SELF_FIT_JS = <<<'JS'
   addEventListener('load', fit);
   addEventListener('resize', fit);
 })();
+
+// troncature propre de .desc : le line-clamp CSS coupe où ça tombe
+// (milieu de mot/phrase) — on mesure le budget lignes réel et on
+// ramène le texte à la fin de phrase (ou de mot) qui y tient.
+(function () {
+  try {
+    var d = document.querySelector('.desc');
+    if (!d) return;
+    var full = d.textContent;
+    var lines = parseInt(getComputedStyle(d)
+      .getPropertyValue('--desc-lines')) || 0;
+    if (!lines) return;
+    d.style.display = 'block';
+    d.style.webkitLineClamp = 'unset';
+    var lh = parseFloat(getComputedStyle(d).lineHeight) || 40;
+    var max = lines * lh;
+    function fits(t) { d.textContent = t; return d.scrollHeight <= max + 1; }
+    if (fits(full)) return;             // tout tient : rien à faire
+    var lo = 0, hi = full.length;       // plus long préfixe qui tient
+    while (lo < hi) {
+      var mid = (lo + hi + 1) >> 1;
+      if (fits(full.slice(0, mid))) lo = mid; else hi = mid - 1;
+    }
+    var cut = full.slice(0, lo);
+    var end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '),
+                       cut.lastIndexOf('! '), cut.lastIndexOf('… '),
+                       cut.lastIndexOf('.'));
+    if (end > lo * 0.5) cut = cut.slice(0, end + 1);
+    else { var sp = cut.lastIndexOf(' '); if (sp > 0) cut = cut.slice(0, sp); }
+    d.textContent = cut.replace(/[,;:—–\-\s]+$/, '') + '…';
+  } catch (e) { /* clamp CSS en secours : comportement antérieur */ }
+})();
 </script>
 JS;
 
@@ -119,6 +151,9 @@ const TITLE_CHAR_W = 0.55;
 // paragraphes de desc_long par « \n » : sans les variantes \n la
 // plupart des fins de phrase réelles seraient ratées (coupe au mot)
 const SENT_END = ['. ', '! ', '? ', '… ', ".\n", "!\n", "?\n",
+                  ".\xC2\xA0", "!\xC2\xA0", "?\xC2\xA0",   // NBSP
+                  ".\xE2\x80\xAF", "!\xE2\x80\xAF",        // fine NBSP
+                  "?\xE2\x80\xAF",
                   "…\n", "\n"];
 
 const FONTS = [
@@ -163,8 +198,16 @@ function truncate_text($text, $limit = 400) {
     }
     if ($i > 0)
         return rtrim(mb_substr($w, 0, $i), ".,;:!?\n") . '…';
-    $pos = mb_strrpos($w, ' ');
+    // dernier espace, insécables français compris (U+00A0 / U+202F)
+    $pos = false;
+    foreach ([' ', "\xC2\xA0", "\xE2\x80\xAF", "\n", "\t"] as $sp) {
+        $p = mb_strrpos($w, $sp);
+        if ($p !== false && ($pos === false || $p > $pos)) $pos = $p;
+    }
     if ($pos !== false) $w = mb_substr($w, 0, $pos);
+    // rtrim charlist = octets : les espaces multi-octets se retirent
+    // par preg, pas par rtrim (corromprait l'UTF-8)
+    $w = preg_replace('/[\s\x{00A0}\x{202F}]+$/u', '', $w);
     return rtrim($w, '.,;:!?') . '…';
 }
 
@@ -215,18 +258,20 @@ function desc_html($ev, $orientation, $max_lines) {
         $src = ($ev['desc_md'] ?? '') ?: ($ev['desc'] ?? '');
     // toujours tronquer côté texte, plafonné à la capacité du gabarit
     $lay = LAYOUT[$orientation];
-    $cap = min(DESC_MAX ?: 400,
-               $lay['desc_cpl'] * ($max_lines ?: $lay['desc_max']));
+    $cap = DESC_MAX > 0
+         ? min(DESC_MAX,
+               $lay['desc_cpl'] * ($max_lines ?: $lay['desc_max']))
+         : $lay['desc_cpl'] * ($max_lines ?: $lay['desc_max']);
     if (DESC_MODE !== 'chapeau' && mb_strlen($src) > $cap) {
         // première phrase plus longue que la borne : la troncature
         // tomberait en plein milieu — retomber sur le chapeau, pensé
         // pour tenir dans la zone
-        $end = -1;
+        $end = PHP_INT_MAX;
         foreach (SENT_END as $s) {
             $p = strpos($src, $s);
-            if ($p !== false && $p > $end) $end = $p;
+            if ($p !== false && $p < $end) $end = $p;
         }
-        if ($end < 0 || $end + 2 > $cap)
+        if ($end === PHP_INT_MAX || $end + 2 > $cap)
             $src = ($ev['desc'] ?? '') ?: $src;
     }
     $txt = truncate_text($src, $cap);
@@ -241,6 +286,22 @@ function desc_html($ev, $orientation, $max_lines) {
         while ($used($txt) > $max_lines && mb_strlen($txt) > 40)
             $txt = truncate_text($src,
                                  (int)(mb_strlen($txt) * 0.85));
+    }
+    // effondrement sur le chapeau seul (le « \n\n » consomme une
+    // ligne et empêche chapeau+début de longue de tenir) : mieux
+    // vaut une phrase complète de la détaillée qu'un teaser —
+    // si la longue seule offre plus de texte, la préférer.
+    if (DESC_MODE === 'full' && $b) {
+        $alt = truncate_text($b, $cap);
+        $cpl = $lay['desc_cpl'];
+        $used = fn($t) => array_sum(array_map(
+            fn($s) => max(1, (int)ceil(mb_strlen($s) / $cpl)),
+            explode("\n", $t)));
+        while ($max_lines && $used($alt) > $max_lines
+               && mb_strlen($alt) > 40)
+            $alt = truncate_text($b,
+                                 (int)(mb_strlen($alt) * 0.85));
+        if (mb_strlen($alt) > mb_strlen($txt)) $txt = $alt;
     }
     return md_inline($txt);
 }
