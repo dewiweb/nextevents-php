@@ -92,19 +92,36 @@ if (($_GET['layout'] ?? '') === 'split') {
     $src = dirname($_SERVER['SCRIPT_NAME']) . '/slideshow.php'
          . '?fmt=' . rawurlencode($fmt)
          . "&delay=$delay&tdur=$tdur&transition=$trans";
+    $mf = dirname(__DIR__) . "/datas/nextevent/$fmt/manifest.txt";
+    $has = is_file($mf)
+        && count(array_filter(array_map('trim', file($mf)))) > 0;
     $css = $dir === 'v' ? 'grid-template-columns:2fr 1fr'
                         : 'grid-template-rows:2fr 1fr';
+    $full = $dir === 'v' ? 'grid-template-columns:1fr 0fr'
+                         : 'grid-template-rows:1fr 0fr';
     header('Content-Type: text/html; charset=utf-8');
     echo '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
        . '<title>Kiosk split</title><style>'
        . 'html,body{margin:0;height:100%;background:#000;'
        . 'overflow:hidden}'
-       . '#split{display:grid;height:100%;' . $css . '}'
-       . 'iframe{width:100%;height:100%;border:0;display:block}'
-       . '</style></head><body><div id="split">'
+       . '#split{display:grid;height:100%}'
+       . 'iframe{width:100%;height:100%;border:0;display:block;'
+       . 'overflow:hidden}'
+       . '</style></head><body><div id="split" style="'
+       . ($has ? $css : $full) . '">'
        . '<iframe src="' . htmlspecialchars($jauges) . '"></iframe>'
        . '<iframe src="' . htmlspecialchars($src) . '"></iframe>'
-       . '</div></body></html>';
+       . '</div><script>'
+       // manifest vide → jauges plein écran ; re-poll périodique pour
+       // restaurer le split dès que des diapos sont (re)générées
+       . 'const el=document.getElementById("split"),'
+       . 'SPLIT=' . json_encode($css) . ',FULL=' . json_encode($full) . ';'
+       . 'async function poll(){try{const r=await(await fetch('
+       . '"slideshow.php?manifest=' . $fmt
+       . '",{cache:"no-store"})).json();'
+       . 'el.style.cssText=r.slides.length?SPLIT:FULL}catch(e){}}'
+       . 'setInterval(poll,60000);'
+       . '</script></body></html>';
     exit;
 }
 

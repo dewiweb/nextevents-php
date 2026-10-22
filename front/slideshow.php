@@ -242,6 +242,13 @@ async function poll() {
     }
     let list = r.slides;
     if (off || LIMIT) list = list.slice(off, off + LIMIT || undefined);
+    // garde-fou : offset sauvegardé au-delà d'un manifest régénéré
+    // (programme raccourci) → liste vide alors que des diapos existent
+    if (!list.length && r.slides.length && (off || RESUME)) {
+      off = 0; sessionOff = 0;
+      try { localStorage.removeItem(LSKEY); } catch (e) {}
+      list = LIMIT ? r.slides.slice(0, LIMIT) : r.slides;
+    }
     // position du prochain groupe mémorisée dès le chunk déterminé —
     // pas seulement en fin du dernier délai : si la page mère coupe
     // le player avant ce moment (timing propre, diapo cachée), la
