@@ -28,7 +28,7 @@ define('HTTP_VERIFY_SSL', true);
 // 'animation','atelier','atelier-4c','visite' pour tout couvrir.
 define('OA_CATEGORIES', [
     'rencontre', 'concert', 'projection', 'spectacle', 'evenement',
-]);
+]);   // [] = pas de filtre (tous événements, tag « Événement »)
 
 // — Génération ——————————————————————————————————————————————————
 // formats produits : 'portrait-screen' (9:16 pour l'écran vertical),

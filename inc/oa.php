@@ -220,7 +220,7 @@ function oa_base_map($cat_value, $cat_label, $public_label, $kws, $cond,
         $specs['Public'] = $pub;
     }
 
-    $tag = OA_TAG_LABEL[$cat_value] ?? ($cat_label ?: 'Événement');
+    $tag = OA_TAG_LABEL[$cat_value ?? ''] ?? ($cat_label ?: 'Événement');
     if ($tag === 'Temps fort')
         unset($specs['Lieu']);  // multi-sites : le lieu prête à confusion
 
@@ -417,8 +417,11 @@ function oa_list_events() {
     else
         $events = oa_legacy_events(OA_AGENDA);
     $wanted = array_flip(OA_CATEGORIES);
-    $events = array_values(array_filter(
-        $events, fn($e) => isset($wanted[$e['_oa_cat'] ?? ''])));
+    // liste vide = pas de filtre : agendas sans taxonomie
+    // « categorie » (tous _oa_cat null) — tag « Événement »
+    if ($wanted)
+        $events = array_values(array_filter(
+                $events, fn($e) => isset($wanted[$e['_oa_cat'] ?? ''])));
     usort($events, function ($a, $b) {
         $pa = $a['pinned'] ? 0 : 1;
         $pb = $b['pinned'] ? 0 : 1;
